@@ -1,18 +1,57 @@
-FROM docker.io/library/debian:bookworm-slim as base
-# FROM docker.io/library/debian:trixie-slim # failing in trixie
+# FROM docker.io/library/debian:bookworm-slim as base
+FROM docker.io/library/debian:trixie-slim as base
 
-RUN apt-get update && \
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+USER root
+RUN export DEBIAN_FRONTEND=noninteractive &&\
+	apt-get update && \
 	apt-get install -y \
 	git \
 	perl \
 	sqlite3 \
 	curl \
+	make \
+	build-essential \
 	# xapian search
 	xapian-omega \
 	libsearch-xapian-perl \
-	public-inbox \
+	# public-inbox \
+	libplack-perl \
+	libinline-c-perl \
+	libemail-address-xs-perl \
+	libplack-middleware-reverseproxy-perl \
+	libhighlight-perl \
+	libnet-server-perl \
+	libmail-imapclient-perl \
+	libnet-server-perl \
+	spamd \
 	spamc
 
-WORKDIR /data
+# USER app
+
+# Set up the working directory and entry point script
+RUN mkdir -p /var/log/public-inbox && mkdir -p /etc/public-inbox
 
 
+WORKDIR /public-inbox
+
+COPY ./public-inbox-source/ .
+# RUN git clone http://public-inbox.org/public-inbox.git .
+
+RUN yes | ./install/deps.perl all
+
+# RUN rm -rf /var/lib/apt/lists/*
+
+# TODO: check if PERL_INLINE_DIRECTORY & TMPDIR can help speeding this up
+RUN perl Makefile.PL && \
+	make && \
+	# make test && \
+	# make check runs tests in parallel
+	# make check && \
+	make install
+
+
+
+WORKDIR /app

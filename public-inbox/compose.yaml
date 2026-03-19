@@ -1,26 +1,65 @@
 version: '3'
 
 services:
-  public-inbox-http:
+  # nginx:
+  #   image: docker.angie.software/angie:minimal
+  #   ports:
+  #     - "18000:80"
+  #   volumes:
+  #     - ./nginx/nginx.conf:/etc/angie/angie.conf:z
+  #     - ./server/static:/www/data:z
+  #     - ./var/www/static/theme.css
+  #   depends_on:
+  #     - api
+  #   # networks:
+  #   #   - app_network
+  #   restart: unless-stopped
+  public-inbox:
     build:
       context: .
       dockerfile: ./Containerfile
+      args:
+        USER_ID: '${UID:-1000}'
+        GROUP_ID: '${UID:-1000}'
 
+    user: "${UID}:${GID}"
+    # userns_mode: "keep-id"
+    # userns_mode: "keep-id:uid=1000,gid=1000"
     environment:
       - DEBUG=false
       - PI_CONFIG=/etc/public-inbox/config
+      - PI_DATA_DIR=/data
+      - IMAP_FOLDER=INBOX
+      - IMAP_SSL=true
+      - IMAP_INTERVAL=3600
+      - SA_MAX_MAIL_SIZE 4096000
+      # in the .env secrets
+      # - IMAP_HOST=imap.example.com
+      # - IMAP_USER=publicinbox@example.com
+      # - IMAP_PASS=secret
+    # env_file:
+    #   - ./imap.env
+      
     volumes:
-    - ../data/:/data/:z
-    - ./config:/etc/public-inbox/:z
+      - ../data/:/data/:z
+      - ../216dark,css/:/static/theme.css:z
+      - ./scripts:/app:z
+      - ./pi-configs/:/etc/public-inbox/:z
+      # - ./public-inbox/config:/etc/public-inbox-source/:z
+      - ./logs/:/var/log/public-inbox/:z
+    # network_mode: "host"
     ports:
-      - "18080:8080"
-    user: "${UID}:${GID}"
-    # restart: unless-stopped
-    # script to copy the public_inbox config files
-    # command: python3 /app/copy_config_files.py
-    command: sleep 60000
-    # command: public-inbox-h  
-  # public-inbox-nntp:
+      - "8080:8080"  # HTTP access
+      # - "119:119"     # NNTP access
+      # - "143:143"     # IMAP access
+      
+
+    # Make sure public-inbox is running in the foreground
+    command: >
+      bash ./start.sh
+    # stdin_open: true
+    # tty: true
+  # spamd:
   #   build:
   #     context: .
   #     dockerfile: ./Containerfile
@@ -28,14 +67,29 @@ services:
   #   environment:
   #     - DEBUG=false
   #     - PI_CONFIG=/etc/public-inbox/config
+  #     - IMAP_FOLDER=INBOX
+  #     - IMAP_SSL=true
+  #     - IMAP_INTERVAL=3600
+  #     # in the .env secrets
+  #     # - IMAP_HOST=imap.example.com
+  #     # - IMAP_USER=publicinbox@example.com
+  #     # - IMAP_PASS=secret
+  #   env_file:
+  #     - ./imap.env
+  #
   #   volumes:
-  #   - ./data/:/data/:z
-  #   - ./public-inbox/config:/etc/public-inbox/:z
+  #     - ../data/:/data/:z
+  #     - ~/Mail/rcpassosme/:/mail/:ro
+  #     - ./pi-configs/:/etc/public-inbox/:z
+  #     # - ./public-inbox/config:/etc/public-inbox-source/:z
+  #     - ./logs/:/var/log/public-inbox/:z
+  #   # network_mode: "host"
   #   ports:
-  #     - "18119:119"
+  #     - "783:783"  # HTTP access
   #   user: "${UID}:${GID}"
-  #   # restart: unless-stopped
-  #   # script to copy the public_inbox config files
-  #   # command: python3 /app/copy_config_files.py
-  #   command: sleep 60000
-  #   # command: public-inbox-nntp
+  #
+  #   # Make sure public-inbox is running in the foreground
+  #   command: spamd
+  #   stdin_open: true
+  #   tty: true
+

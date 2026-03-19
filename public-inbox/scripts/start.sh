@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ -z "$(ls -A $PI_DATA_DIR)" ]; then
+	echo "Data Directory is empty. Initialyzing"
+	PI_CONFIG=/etc/public-inbox/config.init bash ./reinit-from-config.sh /etc/public-inbox/config
+else
+	# public-inbox-index
+	echo "Starting"
+fi
+
+# Array to keep track of process IDs
+pids=()
+
+# Cleanup function to kill all background processes
+cleanup() {
+	echo "Shutting down all services..."
+	# Kill all PIDs in our array; ignore errors if they are already dead
+	kill "${pids[@]}" 2>/dev/null
+	exit 1
+}
+
+# Service 1: Succesful long-running task
+spamd --username debian-spamd -l \
+	--nouser-config \
+	--syslog stderr \
+	--pidfile /var/run/spamd.pid \
+	--helper-home-dir /var/lib/spamassassin \
+	&
+	# -s stderr 2>/dev/null &
+pids+=($!)
+
+# startup interval
+sleep 2
+
+# Service 2: Succesful long-running task
+# public-inbox-watch &
+# pids+=($!)
+
+# startup interval
+# sleep 2
+
+# Service 3: Simulated FAILURE (exits with code 1 after 3 seconds)
+# public-inbox-httpd &
+# public-inbox-netd -l http://0.0.0.0:8080 -l nntp://0.0.0.0:563 &
+# sh -c "sleep 120; exit 1" &
+public-inbox-httpd &
+pids+=($!)
+
+public-inbox-nntpd &
+pids+=($!)
+
+
+# sleep 2
+public-inbox-watch &
+pids+=($!)
+
+echo "Monitoring services (PIDs: ${pids[*]})..."
+
+# 'wait -n' waits for the FIRST process to exit and returns its exit code
+wait -n
+
+if [ $? -ne 0 ]; then
+	echo "Critial failure detected in one of the services!"
+	cleanup
+else
+	echo "A service finished successfully. Checking remaining..."
+	# Optional: loop or wait for others if success isn't a "failure" condition
+fi

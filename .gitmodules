@@ -1,3 +1,6 @@
 [submodule "grokmirror/grokmirror"]
 	path = grokmirror/grokmirror
 	url = git@github.com:auyer/grokmirror.git
+[submodule "public-inbox-source"]
+	path = public-inbox/public-inbox-source
+	url = http://public-inbox.org/public-inbox.git

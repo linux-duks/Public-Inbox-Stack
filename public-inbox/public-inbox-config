@@ -1,9 +1,0 @@
-[publicinbox "netdev"]
-	inboxdir = /data/netdev
-	url = https://lore.codev.ime.usp.br/netdev/
-	url = http://lore.codev.ime.usp.br/netdev/
-	address = netdev@vger.kernel.org
-	listid = netdev.vger.kernel.org
-	newsgroup = org.kernel.vger.netdev
-	nntpmirror = nntp://nntp.lore.kernel.org/org.kernel.vger.netdev
-
