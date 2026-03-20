@@ -1,0 +1,140 @@
+<html><head><title>an &#34;archives first&#34; approach to mailing lists</title><link
+rel=alternate
+title="Atom feed"
+href="../../atom/"
+type="application/atom+xml"/><style>@import url("../../216light.css?66ea10ad") screen AND (prefers-color-scheme:light);pre{white-space:pre-wrap}*{font-size:100%;font-family:monospace}</style><link
+type=text/css
+rel=stylesheet
+href=../../216dark.css?66eb3240
+media=screen /><link
+type=text/css
+rel=stylesheet
+media=print
+href=../../216light.css?66ea10ad /></head><body><form
+action="http://public-inbox.org/meta/"><pre><a
+href="../../">public-inbox.git</a>  <a href='../../#readme'>about</a> / <a
+href='../../#heads'>heads</a> / <a
+href='../../#tags'>tags</a>
+<b>an &#34;archives first&#34; approach to mailing lists</b>
+<input
+name=q type=text
+value="dfn:contrib/css/216dark.css dfpost:1277a49" /><input type=submit
+value="search mail in `http://public-inbox.org/meta&#39;"/></pre></form><pre>blob 1277a49afaeb0d9222ca0094d1e78a5553b97ff0 1787 bytes (<a
+href="contrib-css-216dark.css">raw</a>)
+name: contrib/css/216dark.css 	 # note: path name is non-authoritative<a
+href="#pathdef" id=top>(*)</a></pre><hr /><table
+class=blob><tr><td
+class=linenumbers><pre><a id=n1 href=#n1> 1</a>
+<a id=n2 href=#n2> 2</a>
+<a id=n3 href=#n3> 3</a>
+<a id=n4 href=#n4> 4</a>
+<a id=n5 href=#n5> 5</a>
+<a id=n6 href=#n6> 6</a>
+<a id=n7 href=#n7> 7</a>
+<a id=n8 href=#n8> 8</a>
+<a id=n9 href=#n9> 9</a>
+<a id=n10 href=#n10>10</a>
+<a id=n11 href=#n11>11</a>
+<a id=n12 href=#n12>12</a>
+<a id=n13 href=#n13>13</a>
+<a id=n14 href=#n14>14</a>
+<a id=n15 href=#n15>15</a>
+<a id=n16 href=#n16>16</a>
+<a id=n17 href=#n17>17</a>
+<a id=n18 href=#n18>18</a>
+<a id=n19 href=#n19>19</a>
+<a id=n20 href=#n20>20</a>
+<a id=n21 href=#n21>21</a>
+<a id=n22 href=#n22>22</a>
+<a id=n23 href=#n23>23</a>
+<a id=n24 href=#n24>24</a>
+<a id=n25 href=#n25>25</a>
+<a id=n26 href=#n26>26</a>
+<a id=n27 href=#n27>27</a>
+<a id=n28 href=#n28>28</a>
+<a id=n29 href=#n29>29</a>
+<a id=n30 href=#n30>30</a>
+<a id=n31 href=#n31>31</a>
+<a id=n32 href=#n32>32</a>
+<a id=n33 href=#n33>33</a>
+<a id=n34 href=#n34>34</a>
+<a id=n35 href=#n35>35</a>
+<a id=n36 href=#n36>36</a>
+<a id=n37 href=#n37>37</a>
+<a id=n38 href=#n38>38</a>
+<a id=n39 href=#n39>39</a>
+<a id=n40 href=#n40>40</a>
+<a id=n41 href=#n41>41</a>
+<a id=n42 href=#n42>42</a>
+<a id=n43 href=#n43>43</a>
+<a id=n44 href=#n44>44</a>
+<a id=n45 href=#n45>45</a>
+<a id=n46 href=#n46>46</a>
+<a id=n47 href=#n47>47</a>
+<a id=n48 href=#n48>48</a>
+<a id=n49 href=#n49>49</a>
+<a id=n50 href=#n50>50</a>
+<a id=n51 href=#n51>51</a>
+<a id=n52 href=#n52>52</a>
+</pre></td><td><pre> </pre></td><td
+class=lines><pre
+style='white-space:pre'><code><span class="hl com">/*</span>
+<span class="hl com"> * CC0-1.0 &lt;<a
+href="https://creativecommons.org/publicdomain/zero/1.0/legalcode">https://creativecommons.org/publicdomain/zero/1.0/legalcode</a>&gt;</span>
+<span class="hl com"> * Dark color scheme using 216 web-safe colors, inspired</span>
+<span class="hl com"> * somewhat by the default color scheme in mutt.</span>
+<span class="hl com"> * It reduces eyestrain for me, and energy usage for all:</span>
+<span class="hl com"> * <a
+href="https://en.wikipedia.org/wiki/Light-on-dark_color_scheme">https://en.wikipedia.org/wiki/Light-on-dark_color_scheme</a></span>
+<span class="hl com"> */</span>
+<span class="hl opt">* {</span> <span class="hl kwa">font-size</span><span class="hl opt">:</span> <span class="hl num">100</span><span class="hl opt">%;</span> <span class="hl kwa">font-family</span><span class="hl opt">:</span> monospace<span class="hl opt">;</span> <span class="hl kwa">background</span><span class="hl opt">:</span><span class="hl num">#000</span><span class="hl opt">;</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#ccc</span> <span class="hl opt">}</span>
+pre <span class="hl opt">{</span> <span class="hl kwa">white-space</span><span class="hl opt">:</span> pre-wrap <span class="hl opt">}</span>
+
+<span class="hl com">/*</span>
+<span class="hl com"> * Underlined links add visual noise which make them hard-to-read.</span>
+<span class="hl com"> * Use colors to make them stand out, instead.</span>
+<span class="hl com"> */</span>
+<span class="hl kwa">a</span><span class="hl opt">:</span>link <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#69f</span><span class="hl opt">;</span> <span class="hl kwa">text-decoration</span><span class="hl opt">:</span>none <span class="hl opt">}</span>
+<span class="hl kwa">a</span><span class="hl opt">:</span>visited <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#96f</span> <span class="hl opt">}</span>
+
+<span class="hl com">/* quoted text in emails gets a different color */</span>
+<span class="hl opt">*.</span>q <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#09f</span> <span class="hl opt">}</span>
+
+<span class="hl com">/*</span>
+<span class="hl com"> * these may be used with cgit &lt;<a
+href="https://git.zx2c4.com/cgit/">https://git.zx2c4.com/cgit/</a>&gt;, too.</span>
+<span class="hl com"> * (cgit uses &lt;div&gt;, public-inbox uses &lt;span&gt;)</span>
+<span class="hl com"> */</span>
+<span class="hl opt">*.</span>add <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#0ff</span> <span class="hl opt">}</span> <span class="hl com">/* diff post-image lines */</span>
+<span class="hl opt">*.</span>del <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#f0f</span> <span class="hl opt">}</span> <span class="hl com">/* diff pre-image lines */</span>
+<span class="hl opt">*.</span>head <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#fff</span> <span class="hl opt">}</span> <span class="hl com">/* diff header (metainformation) */</span>
+<span class="hl opt">*.</span>hunk <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#c93</span> <span class="hl opt">}</span> <span class="hl com">/* diff hunk-header */</span>
+
+<span class="hl com">/*</span>
+<span class="hl com"> * highlight 3.x colors (tested 3.18) for displaying blobs.</span>
+<span class="hl com"> * This doesn&#39;t use most of the colors available, as I find too</span>
+<span class="hl com"> * many colors overwhelming, so the default is commented out.</span>
+<span class="hl com"> */</span>
+<span class="hl kwc">.hl.num</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#f30</span> <span class="hl opt">}</span> <span class="hl com">/* number */</span>
+<span class="hl kwc">.hl.esc</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#f0f</span> <span class="hl opt">}</span> <span class="hl com">/* escape character */</span>
+<span class="hl kwc">.hl.str</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#f30</span> <span class="hl opt">}</span> <span class="hl com">/* string */</span>
+<span class="hl kwc">.hl.ppc</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#f0f</span> <span class="hl opt">}</span> <span class="hl com">/* preprocessor */</span>
+<span class="hl kwc">.hl.pps</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#f30</span> <span class="hl opt">}</span> <span class="hl com">/* preprocessor string */</span>
+<span class="hl kwc">.hl.slc</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#09f</span> <span class="hl opt">}</span> <span class="hl com">/* single-line comment */</span>
+<span class="hl kwc">.hl.com</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#09f</span> <span class="hl opt">}</span> <span class="hl com">/* multi-line comment */</span>
+<span class="hl com">/* .hl.opt { color:#ccc } */</span> <span class="hl com">/* operator */</span>
+<span class="hl com">/* .hl.ipl { color:#ccc } */</span> <span class="hl com">/* interpolation */</span>
+
+<span class="hl com">/* keyword groups kw[a-z] */</span>
+<span class="hl kwc">.hl.kwa</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#ff0</span> <span class="hl opt">}</span>
+<span class="hl kwc">.hl.kwb</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#0f0</span> <span class="hl opt">}</span>
+<span class="hl kwc">.hl.kwc</span> <span class="hl opt">{</span> <span class="hl kwa">color</span><span class="hl opt">:</span><span class="hl num">#ff0</span> <span class="hl opt">}</span>
+<span class="hl com">/* .hl.kwd { color:#ccc } */</span>
+
+<span class="hl com">/* line-number (unused by public-inbox) */</span>
+<span class="hl com">/* .hl.lin { color:#ccc } */</span>
+</code></pre></td></tr></table><hr><pre
+id=pathdef>(*) Git path names are given by the tree(s) the blob belongs to.
+    Blobs themselves have no identifier aside from the hash of its contents.<a
+href="#top">^</a></pre><hr><pre>git clone https://public-inbox.org/public-inbox.git
+git clone http://7fh6tueqddpjyxjmgtdiueylzoqt6pt7hec3pukyptlmohoowvhde4yd.onion/public-inbox.git</pre></body></html>
