@@ -15,6 +15,7 @@ services:
       - public-inbox
     restart: unless-stopped
   public-inbox:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: ./Containerfile
