@@ -55,6 +55,16 @@ pids+=($!)
 public-inbox-watch &
 pids+=($!)
 
+EXT_DIR="/data/all/"
+BASE_DATA="/data"
+
+# Enable extended globbing for the 'not' operator
+shopt -s extglob
+
+# Run the command
+# The trailing slash on !(all)/ ensures we only match directories
+public-inbox-extindex --watch "$EXT_DIR" "$BASE_DATA"/!(all)/ &
+
 echo "Monitoring services (PIDs: ${pids[*]})..."
 
 # 'wait -n' waits for the FIRST process to exit and returns its exit code
