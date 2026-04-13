@@ -1,19 +1,19 @@
 [publicinbox]
-	grokmanifest = all
-  wwwListing = all
-	grokManifest = all
+        grokmanifest = all
+        wwwListing = all
+        css = /static/theme.css title=216dark
 
 [extindex "all"]
-  topdir = /data/all
-  url = https://lore.kernel.ime.usp.br/
+        topdir = /data/all
+        url = https://lore.lore.your.instance.tld/
 
 
-[publicinbox "kernel.ime"]
-	address = kernel-owner@lists.ime.usp.br
-	url = https://lore.kernel.ime.usp.br/kernel.ime/
+[publicinbox "your-lore"]
+        address = address@lists.ime.usp.br
+        url = https://lore.lore.your.instance.tld/kernel.ime/
 
-	inboxdir = /data/kernel.ime/
-	watch = "imaps://user@email:pass@imap:993/INBOX"
+        inboxdir = /data/your-lore/
+        watch = "imaps://user@email:pass@imap:993/INBOX"
 
 
 [publicinboxwatch]
