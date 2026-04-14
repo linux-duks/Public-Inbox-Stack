@@ -26,13 +26,14 @@ http {
     proxy_cache_path /tmp/angie_cache levels=1:2 keys_zone=local_cache:30m max_size=510m inactive=10d;
     proxy_temp_path /tmp/angie_proxy 1 2;
 
-    # ACME certificate configuration
-    # resolver 8.8.8.8 8.8.4.4;
-    # acme_client_path /var/lib/angie/acme;
+{{#ACME_ENABLED}}
+    resolver 8.8.8.8 8.8.4.4;
+    acme_client_path /var/lib/angie/acme;
 
-    # acme_client letsencrypt https://acme-v02.api.letsencrypt.org/directory
-    #             email=kernel-owners@lists.ime.usp.br
-    #             key_type=ecdsa;
+    acme_client letsencrypt https://acme-v02.api.letsencrypt.org/directory
+                email={{ACME_EMAIL}}
+                key_type=ecdsa;
+{{/ACME_ENABLED}}
 
     # Upstream for public-inbox HTTP service
     upstream public_inbox {
@@ -42,12 +43,15 @@ http {
     # HTTP server - ACME challenge and redirect to HTTPS
     server {
         listen 80;
-        server_name lore.kernel.ime.usp.br localhost;
+        server_name {{SERVE_HOST}} localhost;
 
         server_tokens off;
 
+{{#ACME_ENABLED}}
         # ACME HTTP challenge handling
-        # acme letsencrypt;
+        acme letsencrypt;
+{{/ACME_ENABLED}}
+
         # Correctly load mime types
         include /etc/angie/mime.types;
 
@@ -68,23 +72,24 @@ http {
 
     # HTTPS server - Main application
     server {
-        listen 443;# ssl;
-        # listen 443 ssl;
-        server_name lore.kernel.ime.usp.br;
+        listen 443 ssl;
+        server_name {{SERVE_HOST}};
 
         server_tokens off;
 
-        # # SSL certificates from ACME
-        # ssl_certificate $acme_cert_letsencrypt;
-        # ssl_certificate_key $acme_cert_key_letsencrypt;
-        #
-        # # SSL configuration
-        # ssl_protocols TLSv1.2 TLSv1.3;
-        # ssl_ciphers HIGH:!aNULL:!MD5;
-        # ssl_prefer_server_ciphers on;
+{{#ACME_ENABLED}}
+        # SSL certificates from ACME
+        ssl_certificate $acme_cert_letsencrypt;
+        ssl_certificate_key $acme_cert_key_letsencrypt;
+
+        # SSL configuration
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
 
         # Link ACME client for auto-renewal
-        # acme letsencrypt;
+        acme letsencrypt;
+{{/ACME_ENABLED}}
 
         # Correctly load mime types
         include /etc/angie/mime.types;

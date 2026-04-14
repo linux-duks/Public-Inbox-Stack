@@ -16,7 +16,7 @@ fetch_objstore = no
 check_export_ok = no
 
 [remote]
-site = https://erol.kernel.org
+site = https://{{UPSTREAM_HOST}}
 manifest = ${site}/manifest.js.gz
 
 [pull]

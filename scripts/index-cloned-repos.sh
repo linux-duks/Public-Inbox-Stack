@@ -24,6 +24,8 @@ JOBS=4
 DRY_RUN=false
 VERBOSE=false
 
+export PI_CONFIG TOPDIR JOBS
+
 usage() {
     sed -n '2,/^$/s/^# \{0,1\}//p' "$0"
     exit 0

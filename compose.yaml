@@ -22,11 +22,11 @@ services:
     # stdin_open: true
     user: "${UID}:${GID}"
     volumes:
-    - ./configs/grokmirror/rcpassos-${GROKMIRROR_MODE:-clone}.conf:/config/lore.conf:z
-    - ./configs/pi-configs/:/etc/public-inbox/:z
+    - ./build/grokmirror/${GROKMIRROR_MODE:-clone}.conf:/config/grokmirror.conf:z
+    - ./build/pi-configs/:/etc/public-inbox/:z
     - ./data/:/data:z
     - ./scripts:/scripts:z
-    command: grok-pull -v -c /config/lore.conf
+    command: grok-pull -v -c /config/grokmirror.conf
     stop_grace_period: 1m30s
 
   # Run manual indexing: docker compose run --rm indexer
@@ -35,17 +35,16 @@ services:
     build:
       context: .
       dockerfile: ./Containerfile
-
     environment:
       - HOME=/tmp
       - PI_CONFIG=/etc/public-inbox/config
 
     user: "${UID}:${GID}"
     volumes:
-    - ./configs/pi-configs/:/etc/public-inbox/:z
+    - ./build/pi-configs/:/etc/public-inbox/:z
     - ./data/:/data:z
     - ./scripts:/scripts:z
-    command: bash /scripts/index-cloned-repos.sh -o https://lore.kernel.org
+    command: bash /scripts/index-cloned-repos.sh -o https://${UPSTREAM_HOST}
 
   nginx:
     profiles: ["hosting"]
@@ -54,10 +53,12 @@ services:
       - "8088:80"
       - "8443:443"
       - "8119:119"
+    networks:
+      - hosting
     volumes:
-      - ./configs/nginx/angie.conf:/etc/angie/angie.conf:z
+      - ./build/nginx/angie.conf:/etc/angie/angie.conf:z
       - ./acme:/var/lib/angie/acme:z
-      - ./configs/pi-configs/216dark.css:/var/www/static/theme.css:z
+      - ./build/pi-configs/216dark.css:/var/www/static/theme.css:z
     depends_on:
       - public-inbox
     restart: unless-stopped
@@ -65,6 +66,8 @@ services:
   public-inbox:
     profiles: ["hosting"]
     restart: unless-stopped
+    networks:
+      - hosting
     build:
       context: .
       dockerfile: ./Containerfile
@@ -86,9 +89,9 @@ services:
       
     volumes:
       - ./data/:/data/:z
-      - ./configs/pi-configs/216dark.css:/static/theme.css:z
+      - ./build/pi-configs/216dark.css:/static/theme.css:z
       - ./scripts:/scripts:z
-      - ./configs/pi-configs/:/etc/public-inbox/:z
+      - ./build/pi-configs/:/etc/public-inbox/:z
       - ./logs/:/var/log/public-inbox/:z
 
     # Make sure public-inbox is running in the foreground
