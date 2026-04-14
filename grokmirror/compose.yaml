@@ -3,10 +3,9 @@ version: '3'
 services:
   grokmirror:
     build:
-      # context: ./public-inbox/
-      # dockerfile: Containerfile
-      context: .
-      dockerfile: ./Containerfile
+      # uses the parent as context to install both grokmirror and public-inbox from source
+      context: ..
+      dockerfile: ./grokmirror/Containerfile
 
     # stdin_open: true
     user: "${UID}:${GID}"

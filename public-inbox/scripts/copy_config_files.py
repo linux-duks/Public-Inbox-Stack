@@ -2,8 +2,10 @@ import os
 import time
 import subprocess
 
-directory = "/data"  # Replace with the actual path
-filename = "/config/config_result"  # File to append the raw content to
+# use after cloning with grokmirror ? 
+
+directory = "../data"  # Replace with the actual path
+filename = "./config/config_result"  # File to append the raw content to
 hostname = "lore.kernel.ime.usp.br"
 upstream_host = "lore.kernel.org/"
 
