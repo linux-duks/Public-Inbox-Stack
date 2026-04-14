@@ -1,5 +1,9 @@
 version: '3'
 
+# Usage:
+#   docker compose up -d                          # clone mode (default)
+#   GROKMIRROR_MODE=indexed docker compose up -d  # indexed mode (with public-inbox hooks)
+
 services:
   grokmirror:
     build:
@@ -9,11 +13,12 @@ services:
 
     environment:
       - HOME=/tmp
+      - GROKMIRROR_MODE=${GROKMIRROR_MODE:-clone}
 
     # stdin_open: true
     user: "${UID}:${GID}"
     volumes:
-    - ./lore.conf:/config/lore.conf:z
+    - ./lore-${GROKMIRROR_MODE:-clone}.conf:/config/lore.conf:z
     - ../public-inbox/pi-configs/:/etc/public-inbox/:z
     - ../data/:/data:z
     command: grok-pull -v -c /config/lore.conf
