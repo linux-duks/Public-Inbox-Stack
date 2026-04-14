@@ -7,11 +7,14 @@ services:
       context: ..
       dockerfile: ./grokmirror/Containerfile
 
+    environment:
+      - HOME=/tmp
+
     # stdin_open: true
     user: "${UID}:${GID}"
     volumes:
     - ./lore.conf:/config/lore.conf:z
-    - ../public-inbox/config/:/etc/public-inbox/
-    - ../grok-data/:/data:z
+    - ../public-inbox/pi-configs/:/etc/public-inbox/:z
+    - ../data/:/data:z
     command: grok-pull -v -c /config/lore.conf
 
