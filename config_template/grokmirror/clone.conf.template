@@ -15,7 +15,7 @@ fetch_objstore = no
 check_export_ok = no
 
 [remote]
-site = https://{{MIRROR_UPSTREAM_HOST}}
+site = {{MIRROR_UPSTREAM_HOST}}
 manifest = ${site}/manifest.js.gz
 
 [pull]
