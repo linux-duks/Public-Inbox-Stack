@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Generate configuration files from templates
-# Reads .env file and produces configs in build/ directory
+# Reads .env file and produces config_template in configs/ directory
 #
 # Usage: ./setup.sh [--env PATH] [--force]
 #
@@ -97,9 +97,9 @@ if [[ ${#missing[@]} -gt 0 ]]; then
 	exit 1
 fi
 
-# Create build directory structure
+# Create configs directory structure
 if [[ "$DRY_RUN" = false ]]; then
-	mkdir -p build/grokmirror build/nginx build/pi-configs
+	mkdir -p configs/grokmirror configs/nginx configs/pi-configs
 fi
 
 # Process template function
@@ -178,15 +178,15 @@ process_template() {
 # Process all templates
 log_info "Generating configurations..."
 
-process_template "configs/grokmirror/clone.conf.template" "build/grokmirror/clone.conf"
-process_template "configs/grokmirror/indexed.conf.template" "build/grokmirror/indexed.conf"
-process_template "configs/nginx/angie.conf.template" "build/nginx/angie.conf"
-process_template "configs/pi-configs/config.template" "build/pi-configs/config"
+process_template "config_template/grokmirror/clone.conf.template" "configs/grokmirror/clone.conf"
+process_template "config_template/grokmirror/indexed.conf.template" "configs/grokmirror/indexed.conf"
+process_template "config_template/nginx/angie.conf.template" "configs/nginx/angie.conf"
+process_template "config_template/pi-configs/config.template" "configs/pi-configs/config"
 
 if [[ "$DRY_RUN" = false ]]; then
 	log_info "Configuration generation complete!"
 	log_info "Generated files:"
-	find build/ -type f | sed 's/^/  /'
+	find configs/ -type f | sed 's/^/  /'
 	echo ""
 	log_info "Ensuring data directories exist..."
 	mkdir -p data/all 2>/dev/null || true

@@ -23,8 +23,8 @@ services:
     # stdin_open: true
     user: "${UID}:${GID}"
     volumes:
-    - ./build/grokmirror/${GROKMIRROR_MODE:-clone}.conf:/config/grokmirror.conf:z
-    - ./build/pi-configs/:/etc/public-inbox/:z
+    - ./configs/grokmirror/${GROKMIRROR_MODE:-clone}.conf:/config/grokmirror.conf:z
+    - ./configs/pi-configs/:/etc/public-inbox/:z
     - ./data/:/data:z
     - ./scripts:/scripts:z
     command: grok-pull -v -c /config/grokmirror.conf
@@ -43,7 +43,7 @@ services:
 
     user: "${UID}:${GID}"
     volumes:
-    - ./build/pi-configs/:/etc/public-inbox/:z
+    - ./configs/pi-configs/:/etc/public-inbox/:z
     - ./data/:/data:z
     - ./scripts:/scripts:z
     command: bash /scripts/index-cloned-repos.sh -o https://${MIRROR_UPSTREAM_HOST}
@@ -56,9 +56,9 @@ services:
       - "${SERVE_HTTPS_PORT:-443}:443"
       - "${SERVE_NNTP_PORT:-119}:119"
     volumes:
-      - ./build/nginx/angie.conf:/etc/angie/angie.conf:z
+      - ./configs/nginx/angie.conf:/etc/angie/angie.conf:z
       - ./acme:/var/lib/angie/acme:z
-      - ./configs/pi-configs/216dark.css:/var/www/static/theme.css:z
+      - ./config_template/pi-configs/216dark.css:/var/www/static/theme.css:z
     depends_on:
       - public-inbox
     restart: unless-stopped
@@ -89,9 +89,9 @@ services:
       
     volumes:
       - ./data/:/data/:z
-      - ./configs/pi-configs/216dark.css:/static/theme.css:z
+      - ./config_template/pi-configs/216dark.css:/static/theme.css:z
       - ./scripts:/scripts:z
-      - ./build/pi-configs/:/etc/public-inbox/:z
+      - ./configs/pi-configs/:/etc/public-inbox/:z
       - ./logs/:/var/log/public-inbox/:z
 
     # Make sure public-inbox is running in the foreground
