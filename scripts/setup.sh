@@ -121,37 +121,32 @@ process_template() {
 	local content
 	content=$(cat "$template")
 
-	# Process {{#ACME_ENABLED}}...{{/ACME_ENABLED}} blocks
-	if [[ "$ACME_ENABLED" == "true" ]]; then
-		content=$(echo "$content" | sed \
-			-e 's/^{{#ACME_ENABLED}}$//' \
-			-e 's/^{{\/ACME_ENABLED}}$//')
-	else
-		content=$(echo "$content" | sed \
-			-e '/^{{#ACME_ENABLED}}$/,/^{{\/ACME_ENABLED}}$/d')
-	fi
-
-	# Process {{#PI_IMAP_ENABLED}}...{{/PI_IMAP_ENABLED}} blocks
-	if [[ "$PI_IMAP_ENABLED" == "true" ]]; then
-		content=$(echo "$content" | sed \
-			-e 's/^{{#PI_IMAP_ENABLED}}$//' \
-			-e 's/^{{\/PI_IMAP_ENABLED}}$//')
-	else
-		content=$(echo "$content" | sed \
-			-e '/^{{#PI_IMAP_ENABLED}}$/,/^{{\/PI_IMAP_ENABLED}}$/d')
-	fi
-
-
-
-	# Process {{#SPAMCHECK_ENABLED}}...{{/SPAMCHECK_ENABLED}} blocks
-	if [[ "${PI_IMAP_ENABLED:-false}" == "true" ]]; then
-		content=$(echo "$content" | sed \
-			-e 's/^{{#SPAMCHECK_ENABLED}}$//' \
-			-e 's/^{{\/SPAMCHECK_ENABLED}}$//')
-	else
-		content=$(echo "$content" | sed \
-			-e '/^{{#SPAMCHECK_ENABLED}}$/,/^{{\/SPAMCHECK_ENABLED}}$/d')
-	fi
+	# section enable/disable feature
+	#
+	# Helper function to process conditional blocks
+	process_conditional_block() {
+		local block_content="$1"
+		local var_name="$2"
+		local var_value="${!var_name:-false}"
+		
+		if [[ "$var_value" == "true" ]]; then
+			# Remove markers
+			block_content=$(echo "$block_content" | sed \
+				-e "s/^{{#${var_name}}}$//" \
+				-e "s/^{{\/${var_name}}}$//")
+		else
+			# Delete entire block between markers
+			block_content=$(echo "$block_content" | sed \
+				-e "/^{{#${var_name}}}$/,/^{{\/${var_name}}}$/d")
+		fi
+		
+		echo "$block_content"
+	}
+	
+	# Process conditional blocks
+	content=$(process_conditional_block "$content" "ACME_ENABLED")
+	content=$(process_conditional_block "$content" "PI_IMAP_ENABLED")
+	content=$(process_conditional_block "$content" "SPAMCHECK_ENABLED")
 
 	# Replace {{VAR}} placeholders with values
 	sed_args=(
