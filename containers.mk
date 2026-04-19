@@ -43,6 +43,7 @@ ifeq ($(COMPOSE),)
     endif
 endif
 
+
 # Safely determine the real user/group ID, even if run with sudo
 REAL_UID := $(if $(SUDO_UID),$(SUDO_UID),$(shell id -u))
 REAL_GID := $(if $(SUDO_GID),$(SUDO_GID),$(shell id -g))
@@ -51,3 +52,11 @@ REAL_GID := $(if $(SUDO_GID),$(SUDO_GID),$(shell id -g))
 export UID = $(REAL_UID)
 export GID = $(REAL_GID)
 # ----------------------
+
+# --- USER_FLAGS SETUP ---
+# Logic: Map the host UID/GID. If Podman is detected, add the --userns flag.
+USER_FLAGS = -u $(REAL_UID):$(REAL_GID)
+ifeq ($(CONTAINER),podman)
+    USER_FLAGS += --userns keep-id
+endif_FLAGS = -u $$(id -u):$$(id -g)
+endif

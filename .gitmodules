@@ -3,4 +3,4 @@
 	url = git@github.com:auyer/grokmirror.git
 [submodule "public-inbox"]
 	path = public-inbox
-	url = http://public-inbox.org/public-inbox.git
+	url = git@github.com:linux-duks/public-inbox.git

@@ -14,19 +14,19 @@ setup-dry-run: ## Show what would be generated without writing files
 ##@ Running services
 
 run-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) --profile hosting up -d
+	$(COMPOSE) $(USER_FLAGS) --profile hosting up -d
 
 watch-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) --profile hosting up 
+	$(COMPOSE) $(USER_FLAGS) --profile hosting up 
 
 run-mirroring: ## Start grokmirror mirroring (mirroring profile)
-	$(COMPOSE) --profile mirroring up -d
+	$(COMPOSE) $(USER_FLAGS) --profile mirroring up -d
 
 run-mirroring-indexed: ## Start grokmirror with indexing hooks
-	GROKMIRROR_MODE=indexed $(COMPOSE) --profile mirroring up -d
+	GROKMIRROR_MODE=indexed $(COMPOSE) $(USER_FLAGS) --profile mirroring up -d
 
 run-indexer: ## Run manual indexing of cloned repos
-	$(COMPOSE) --profile manual run --rm indexer
+	$(COMPOSE) $(USER_FLAGS) --profile manual run --rm indexer
 
 run-all: setup run-mirroring run-hosting ## Setup, mirror, and host everything
 
