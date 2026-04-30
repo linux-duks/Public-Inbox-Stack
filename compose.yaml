@@ -17,8 +17,10 @@ services:
       - ./configs/pi-configs/:/etc/public-inbox/:z
       - ./data/:/data:z
       - ./scripts:/scripts:z
-    command: grok-pull -v -c /config/grokmirror.conf
+    # defaults to running in daemon mode. "pull-mirror" option pulls once
+    command: grok-pull -v --continuous -c /config/grokmirror.conf
     stop_grace_period: 90s
+    restart: on-failure
 
   indexer:
     profiles: ["manual"]
