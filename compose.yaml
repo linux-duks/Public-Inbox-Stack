@@ -1,5 +1,10 @@
 version: '3'
 
+networks:
+  lore:
+    name: lore-network
+    driver: bridge
+
 services:
   grokmirror:
     profiles: ["mirroring"]
@@ -22,6 +27,8 @@ services:
     command: grok-pull -v --continuous -c /config/grokmirror.conf
     stop_grace_period: 90s
     restart: on-failure
+    networks:
+      - lore
 
   indexer:
     profiles: ["manual"]
@@ -41,6 +48,8 @@ services:
       - ./data/:/data:z
       - ./scripts:/scripts:z
     command: bash /scripts/index-cloned-repos.sh -o ${MIRROR_UPSTREAM_HOST}
+    networks:
+      - lore
 
   nginx:
     profiles: ["hosting"]
@@ -56,6 +65,8 @@ services:
     depends_on:
       - public-inbox
     restart: unless-stopped
+    networks:
+      - lore
 
   public-inbox:
     profiles: ["hosting"]
@@ -87,3 +98,5 @@ services:
       - ./logs/:/var/log/public-inbox/:z
     command: >
       bash /scripts/start-public-inbox.sh
+    networks:
+      - lore
