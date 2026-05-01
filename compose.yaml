@@ -90,6 +90,7 @@ services:
       - IMAP_SSL=true
       - IMAP_INTERVAL=3600
       - SA_MAX_MAIL_SIZE=4096000
+      - EXTINDEX_DESCRIPTION=${EXTINDEX_DESCRIPTION:-All Lore}
     volumes:
       - ./data/:/data/:z
       - ./config_template/pi-configs/216dark.css:/static/theme.css:z

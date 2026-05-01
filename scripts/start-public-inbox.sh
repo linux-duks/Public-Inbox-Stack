@@ -71,6 +71,9 @@ EXT_DIR="/data/all/"
 BASE_DATA="/data"
 
 mkdir -p $EXT_DIR
+if [ ! -f "$EXT_DIR/description" ]; then
+	echo "${EXTINDEX_DESCRIPTION:-All Lore}" > "$EXT_DIR/description"
+fi
 
 if [ "$PI_HTTP_ENABLE" = "true" ]; then
 	public-inbox-httpd &
