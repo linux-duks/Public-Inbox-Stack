@@ -90,8 +90,15 @@ fi
 
 if [ "$PI_INDEXING_ENABLE" = "true" ]; then
 	echo "Running Indexing job"
-	# The trailing slash on !(all)/ ensures we only match directories
-	sleep 2 && public-inbox-extindex "$EXT_DIR" "$BASE_DATA"/!(all)/
+	# Only pass directories that are actual public-inbox inboxes (have all.git)
+	inbox_dirs=()
+	for d in "$BASE_DATA"/*/; do
+		[[ "$(basename "$d")" == "all" ]] && continue
+		[[ -d "${d}all.git" ]] && inbox_dirs+=("$d")
+	done
+	if [[ ${#inbox_dirs[@]} -gt 0 ]]; then
+		sleep 2 && public-inbox-extindex "$EXT_DIR" "${inbox_dirs[@]}"
+	fi
 	echo "Running Indexing job for the all folder"
 	public-inbox-extindex --all
 fi
