@@ -15,6 +15,7 @@
 	url = https://{{SERVE_HOST}}/{{PI_IMAP_LIST_NAME}}
 	inboxdir = /data/{{PI_IMAP_LIST_NAME}}
 	watch = "{{PI_IMAP_AUTH_URL}}"
+	sortorder = 1
 {{/PI_IMAP_ENABLED}}
 
 {{#SPAMCHECK_ENABLED}}

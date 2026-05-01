@@ -279,6 +279,28 @@ If you have your own mailing lists (not mirrored):
 
 The `public-inbox-watch` daemon will poll the IMAP mailbox and ingest new messages.
 
+### Pinning Inboxes to the Top
+
+To control the order inboxes appear on the main listing page, add a
+`sortorder` key to the inbox config. Lower values appear first:
+
+```ini
+[publicinbox "my-important-list"]
+	address = "important@lists.example.com"
+	url = https://lists.example.com/my-important-list
+	inboxdir = /data/my-important-list
+	sortorder = 1
+
+[publicinbox "another-list"]
+	address = "another@lists.example.com"
+	url = https://lists.example.com/another-list
+	inboxdir = /data/another-list
+	sortorder = 2
+```
+
+Inboxes without `sortorder` appear below all sorted inboxes, ordered by
+last modification time (newest first).
+
 ## Services Detail
 
 ### grokmirror
