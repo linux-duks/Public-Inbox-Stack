@@ -45,6 +45,9 @@ Runtime is auto-detected. See [Container Runtime](#container-runtime) for detail
 
 ## Quick Start
 
+This repository relies on git submodules. It must be clone recursively, or run `git submodule update --init --recursive` after clonning.
+
+
 ```bash
 # 1. Create your environment configuration
 cp example.env .env
