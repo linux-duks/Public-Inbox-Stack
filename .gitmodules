@@ -1,6 +1,6 @@
 [submodule "grokmirror"]
 	path = grokmirror
-	url = git@github.com:auyer/grokmirror.git
+	url = git@gitlab.com:ccsl-usp/codev/grokmirror.git
 [submodule "public-inbox"]
 	path = public-inbox
-	url = git@github.com:linux-duks/public-inbox.git
+	url = git@gitlab.com:ccsl-usp/codev/public-inbox.git
