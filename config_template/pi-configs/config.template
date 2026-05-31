@@ -12,6 +12,7 @@
 {{#PI_IMAP_ENABLED}}
 [publicinbox "{{PI_IMAP_LIST_NAME}}"]
 	address = "{{PI_IMAP_LIST_ADDRESS}}"
+	obfuscate = true
 	url = https://{{SERVE_HOST}}/{{PI_IMAP_LIST_NAME}}
 	inboxdir = /data/{{PI_IMAP_LIST_NAME}}
 	watch = "{{PI_IMAP_AUTH_URL}}"
