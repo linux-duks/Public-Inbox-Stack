@@ -157,28 +157,6 @@ process_template() {
 		-e "s|{{PI_INDEX_LEVEL}}|${PI_INDEX_LEVEL:-full}|g"
 	)
 
-	# Set fast indexing flags
-	if [[ "${PI_INDEX_DANGEROUSLY_FAST:-false}" == "true" ]]; then
-		sed_args+=(
-			-e "s|{{PI_INDEX_DANGEROUSLY_FAST_FLAGS}}|--no-fsync --dangerous --batch-size=500m --skip-docdata |g"
-		)
-	else
-		sed_args+=(
-			-e "s|{{PI_INDEX_DANGEROUSLY_FAST_FLAGS}}||g"
-		)
-	fi
-
-	# Set fast indexing flags
-	if [[ "${PI_INDEX_DANGEROUSLY_FAST:-false}" == "true" ]]; then
-		sed_args+=(
-			-e "s|{{PI_INDEX_DANGEROUSLY_FAST_FLAGS}}|--no-fsync --dangerous --batch-size=500m --skip-docdata |g"
-		)
-	else
-		sed_args+=(
-			-e "s|{{PI_INDEX_DANGEROUSLY_FAST_FLAGS}}||g"
-		)
-	fi
-
 	# Conditionally append the IMAP replacements
 	if [[ "$PI_IMAP_ENABLED" == "true" ]]; then
 		sed_args+=(
