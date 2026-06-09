@@ -2,7 +2,7 @@ import os
 import time
 import subprocess
 
-# use after cloning with grokmirror ? 
+# use after cloning with grokmirror ?
 
 directory = "../data"  # Replace with the actual path
 filename = "./config/config_result"  # File to append the raw content to

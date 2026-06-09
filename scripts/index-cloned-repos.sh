@@ -38,14 +38,14 @@ usage() {
 
 while getopts "c:d:o:j:nvh" opt; do
     case $opt in
-        c) PI_CONFIG="$OPTARG" ;;
-        d) TOPDIR="$OPTARG" ;;
-        o) ORIGIN="$OPTARG" ;;
-        j) JOBS="$OPTARG" ;;
-        n) DRY_RUN=true ;;
-        v) VERBOSE=true ;;
-        h) usage ;;
-        *) usage ;;
+    c) PI_CONFIG="$OPTARG" ;;
+    d) TOPDIR="$OPTARG" ;;
+    o) ORIGIN="$OPTARG" ;;
+    j) JOBS="$OPTARG" ;;
+    n) DRY_RUN=true ;;
+    v) VERBOSE=true ;;
+    h) usage ;;
+    *) usage ;;
     esac
 done
 
@@ -61,10 +61,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-log_dry()   { echo -e "${YELLOW}[DRY-RUN]${NC} $*"; }
+log_dry() { echo -e "${YELLOW}[DRY-RUN]${NC} $*"; }
 
 trap 'INTERRUPTED=true; log_warn "Interrupt received, exiting after current operation completes"' INT TERM
 
@@ -75,7 +75,7 @@ rate_limit_http() {
     local last_time="${LAST_HTTP_TIME:-0}"
     local elapsed=$((now - last_time))
     if [ "$elapsed" -lt $HTTP_MINIMUM_INTERVAL ]; then
-		local wait=$((HTTP_MINIMUM_INTERVAL - elapsed))
+        local wait=$((HTTP_MINIMUM_INTERVAL - elapsed))
         if [ "$VERBOSE" = true ]; then
             log_info "Rate limiting: waiting ${wait}s before next HTTP request"
         fi
@@ -115,15 +115,15 @@ needs_init() {
     done
 
     if [ "$has_epoch" = false ]; then
-        return 1  # No git repos at all, not a grokmirror inbox
+        return 1 # No git repos at all, not a grokmirror inbox
     fi
 
     # Lacks v2 wrapper structure
     if [ ! -d "${inbox_dir}/all.git" ] || [ ! -f "${inbox_dir}/msgmap.sqlite3" ]; then
-        return 0  # Needs init
+        return 0 # Needs init
     fi
 
-    return 1  # Already complete
+    return 1 # Already complete
 }
 
 # Get config value for an inbox from the PI_CONFIG file
@@ -147,7 +147,7 @@ fetch_remote_config() {
         -H "Accept: */*" \
         -H "Connection: keep-alive" \
         "$config_url" 2>/dev/null || echo "000")
-    
+
     # Update last HTTP request time for rate limiting
     LAST_HTTP_TIME=$(date +%s)
 
@@ -181,7 +181,7 @@ extract_addresses() {
     if [ ! -f "$config_file" ]; then
         return
     fi
-    grep -E '^\s*address\s*=' "$config_file" | \
+    grep -E '^\s*address\s*=' "$config_file" |
         sed -e 's/.*=\s*//' -e 's/\s*$//' | tr '\n' ' '
 }
 
@@ -191,7 +191,7 @@ extract_description() {
     if [ ! -f "$config_file" ]; then
         return
     fi
-    grep -E '^\s*description\s*=' "$config_file" | \
+    grep -E '^\s*description\s*=' "$config_file" |
         sed -e 's/.*=\s*//' -e 's/\s*$//' | head -1
 }
 
@@ -218,7 +218,7 @@ extract_addresses_from_git() {
     local inbox_dir="$1"
     local git_repos
     local origins=""
-    
+
     git_repos=$(get_pi_repos "$inbox_dir")
     if [ -z "$git_repos" ]; then
         return 1
@@ -239,7 +239,7 @@ extract_addresses_from_git() {
     fi
 
     # Parse addresses from origins config
-    echo "$origins" | grep -E '^\s*address\s*=' | \
+    echo "$origins" | grep -E '^\s*address\s*=' |
         sed -e 's/.*=\s*//' -e 's/\s*$//' | tr '\n' ' '
 }
 
@@ -280,9 +280,9 @@ find_v2_inboxes() {
 init_inbox() {
     local inbox_name="$1"
     local inbox_dir="${TOPDIR}/${inbox_name}"
-	  # TODO: if running locally, this fails to direct to the non-default port
+    # TODO: if running locally, this fails to direct to the non-default port
     local url="${inbox_name}"
-    
+
     # If inbox is in config AND complete, skip
     if inbox_in_config "$inbox_name" && ! needs_init "$inbox_dir"; then
         log_info "Skipping '${inbox_name}' - already initialized"
@@ -396,7 +396,7 @@ init_inbox() {
 
         # Set description if available
         if [ -n "$description" ]; then
-            echo "${description}" > "${inbox_dir}/description"
+            echo "${description}" >"${inbox_dir}/description"
         fi
 
         log_info "Initialized '${inbox_name}'"
@@ -486,16 +486,16 @@ main() {
             log_info "Interrupted, exiting..."
             break
         fi
-        
+
         total=$((total + 1))
 
         local rc=0
         init_inbox "$inbox_name" || rc=$?
 
         case $rc in
-            0) initialized=$((initialized + 1)) ;;
-            1) failed=$((failed + 1)) ;;
-            2) skipped=$((skipped + 1)) ;;
+        0) initialized=$((initialized + 1)) ;;
+        1) failed=$((failed + 1)) ;;
+        2) skipped=$((skipped + 1)) ;;
         esac
     done
 
