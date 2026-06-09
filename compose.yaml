@@ -61,7 +61,7 @@ services:
     volumes:
       - ./configs/nginx/angie.conf:/etc/angie/angie.conf:z
       - ./acme:/var/lib/angie/acme:z
-      - ./config_template/pi-configs/216dark.css:/var/www/static/theme.css:z
+      - ./public-inbox/contrib/css/:/var/www/static/css/:ro
     depends_on:
       - public-inbox
     restart: unless-stopped
@@ -93,8 +93,8 @@ services:
       - EXTINDEX_DESCRIPTION=${EXTINDEX_DESCRIPTION:-All Lore}
     volumes:
       - ./data/:/data/:z
-      - ./config_template/pi-configs/216dark.css:/static/theme.css:z
       - ./scripts:/scripts:z
+      - ./public-inbox/contrib/css/:/static/css/:ro
       - ./configs/pi-configs/:/etc/public-inbox/:z
       - ./logs/:/var/log/public-inbox/:z
     command: >
