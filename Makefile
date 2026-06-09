@@ -1,7 +1,7 @@
 # Include shared container runtime detection
 include ./containers.mk
 
-.PHONY: setup setup-dry-run run-hosting watch-hosting run-mirroring pull-mirror run-mirroring-indexed run-indexer purge-indexing clean logs help
+.PHONY: setup setup-dry-run run-hosting watch-hosting run-mirroring pull-mirror run-mirroring-indexed run-indexer purge-indexing obfuscate clean logs help
 
 ##@ Setup
 
@@ -37,6 +37,9 @@ purge-indexing: ## Purge public-inbox indexing data (preserves grokmirror clones
 run-all: setup run-mirroring run-hosting ## Setup, mirror, and host everything
 
 ##@ Utilities
+
+obfuscate: ## Add obfuscate = true to all publicinbox sections missing it
+	bash scripts/obfuscate.sh
 
 logs: ## Show logs for all services
 	$(COMPOSE) logs -f
