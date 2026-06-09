@@ -56,9 +56,10 @@ http {
         include /etc/angie/mime.types;
 
         # Static file serving for theme.css
-        location = /static/theme.css {
-            alias /var/www/static/theme.css;
+        location /static/css {
+            alias /var/www/static/css;
             default_type text/css;
+            try_files $uri /index.html =404;
         }
         # Proxy all other requests to public-inbox
         location / {
