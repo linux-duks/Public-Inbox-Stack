@@ -71,7 +71,7 @@ services:
 
   anubis:
     image: ghcr.io/techarohq/anubis:latest
-    profiles: ["hosting"]
+    profiles: ["anubis"]
     environment:
       BIND: ":${ANUBIS_PORT}"
       DIFFICULTY: "4"
