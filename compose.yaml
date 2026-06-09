@@ -74,7 +74,7 @@ services:
     profiles: ["anubis"]
     environment:
       BIND: ":${ANUBIS_PORT}"
-      DIFFICULTY: "4"
+      DIFFICULTY: "5"
       SERVE_ROBOTS_TXT: "true"
       TARGET: "unix:/run/nginx/nginx.sock"
       POLICY_FNAME: "/data/cfg/botPolicy.yaml"

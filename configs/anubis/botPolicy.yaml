@@ -1,8 +1,8 @@
 
 bots:
+  # import default configs
   - import: (data)/meta/default-config.yaml
-  # You can import the entire default config with this macro:
-  # - import: (data)/meta/default-config.yaml
+
   - name: allow-uptime-kuma
     user_agent_regex: Uptime-Kuma.*
     action: ALLOW
@@ -10,10 +10,6 @@ bots:
   - name: allow-assets
     action: ALLOW
     path_regex: \.(eot|ttf|woff|woff2|css|js|jpg|jpeg|png|mp4|webp|svg)$
-
-  - name: allow-well-known
-    path_regex: ^/.well-known/.*$
-    action: ALLOW
 
   - name: generic-browser
     user_agent_regex: >-
