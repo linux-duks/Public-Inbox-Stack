@@ -189,6 +189,12 @@ log_info "Generating configurations..."
 process_template "config_template/grokmirror/clone.conf.template" "configs/grokmirror/clone.conf"
 process_template "config_template/grokmirror/indexed.conf.template" "configs/grokmirror/indexed.conf"
 process_template "config_template/nginx/angie.conf.template" "configs/nginx/angie.conf"
+# Backup existing pi-config before overwriting (obfuscate.sh modifications would be lost)
+if [[ -f "configs/pi-configs/config" && "$DRY_RUN" = false ]]; then
+    cp "configs/pi-configs/config" "configs/pi-configs/config.bak"
+    log_warn "Backed up configs/pi-configs/config → configs/pi-configs/config.bak"
+    log_warn "Re-run scripts/obfuscate.sh if you had obfuscate entries added manually"
+fi
 process_template "config_template/pi-configs/config.template" "configs/pi-configs/config"
 process_template "config_template/hosting-profile.txt" "configs/hosting-profile.txt"
 
