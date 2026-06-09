@@ -156,6 +156,7 @@ process_template() {
 		-e "s|{{SERVE_HOST}}|${SERVE_HOST}|g"
 		-e "s|{{ACME_EMAIL}}|${ACME_EMAIL}|g"
 		-e "s|{{PI_INDEX_LEVEL}}|${PI_INDEX_LEVEL:-full}|g"
+		-e "s|{{ANUBIS_PORT}}|${ANUBIS_PORT}|g"
 	)
 
 	# Conditionally append the IMAP replacements

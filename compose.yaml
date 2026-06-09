@@ -73,11 +73,10 @@ services:
     image: ghcr.io/techarohq/anubis:latest
     profiles: ["hosting"]
     environment:
-      BIND: ":8080"
+      BIND: ":${ANUBIS_PORT}"
       DIFFICULTY: "4"
-      METRICS_BIND: ":9090"
       SERVE_ROBOTS_TXT: "true"
-      TARGET: "http://nginx:80"
+      TARGET: "http://nginx:${SERVE_HTTP_PORT}"
       POLICY_FNAME: "/data/cfg/botPolicy.yaml"
       OG_PASSTHROUGH: "true"
       OG_EXPIRY_TIME: "24h"
@@ -88,7 +87,7 @@ services:
       retries: 5
       start_period: 500ms
     ports:
-      - 8080:8080
+      - ${ANUBIS_PORT}:${ANUBIS_PORT}
     volumes:
       - socket_dir:/run/nginx
       - "./configs/anubis/:/data/cfg/:ro"
