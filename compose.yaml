@@ -62,9 +62,38 @@ services:
       - ./configs/nginx/angie.conf:/etc/angie/angie.conf:z
       - ./acme:/var/lib/angie/acme:z
       - ./public-inbox/contrib/css/:/var/www/static/css/:ro
+      - socket_dir:/run/nginx
     depends_on:
       - public-inbox
     restart: unless-stopped
+    networks:
+      - lore
+
+  anubis:
+    image: ghcr.io/techarohq/anubis:latest
+    profiles: ["hosting"]
+    environment:
+      BIND: ":8080"
+      DIFFICULTY: "4"
+      METRICS_BIND: ":9090"
+      SERVE_ROBOTS_TXT: "true"
+      TARGET: "http://nginx:80"
+      POLICY_FNAME: "/data/cfg/botPolicy.yaml"
+      OG_PASSTHROUGH: "true"
+      OG_EXPIRY_TIME: "24h"
+    healthcheck:
+      test: ["CMD", "anubis", "--healthcheck"]
+      interval: 5s
+      timeout: 30s
+      retries: 5
+      start_period: 500ms
+    ports:
+      - 8080:8080
+    volumes:
+      - socket_dir:/run/nginx
+      - "./configs/anubis/:/data/cfg/:ro"
+    depends_on:
+      - nginx
     networks:
       - lore
 
@@ -101,3 +130,6 @@ services:
       bash /scripts/start-public-inbox.sh
     networks:
       - lore
+
+volumes:
+  socket_dir:

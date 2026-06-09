@@ -145,6 +145,7 @@ process_template() {
 	
 	# Process conditional blocks
 	content=$(process_conditional_block "$content" "ACME_ENABLED")
+	content=$(process_conditional_block "$content" "ANUBIS_ENABLED")
 	content=$(process_conditional_block "$content" "PI_IMAP_ENABLED")
 	content=$(process_conditional_block "$content" "SPAMCHECK_ENABLED")
 	content=$(process_conditional_block "$content" "GROKMIRROR_EXTINDEX_ENABLED")
