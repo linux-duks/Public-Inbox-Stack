@@ -25,11 +25,11 @@ usage() {
 
 while getopts "d:nvh" opt; do
     case $opt in
-        d) TOPDIR="$OPTARG" ;;
-        n) DRY_RUN=true ;;
-        v) VERBOSE=true ;;
-        h) usage ;;
-        *) usage ;;
+    d) TOPDIR="$OPTARG" ;;
+    n) DRY_RUN=true ;;
+    v) VERBOSE=true ;;
+    h) usage ;;
+    *) usage ;;
     esac
 done
 
@@ -43,10 +43,10 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-log_info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
-log_warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
+log_info() { echo -e "${GREEN}[INFO]${NC} $*"; }
+log_warn() { echo -e "${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $*"; }
-log_dry()   { echo -e "${YELLOW}[DRY-RUN]${NC} $*"; }
+log_dry() { echo -e "${YELLOW}[DRY-RUN]${NC} $*"; }
 
 # Find v2 inboxes in TOPDIR
 find_inboxes() {
