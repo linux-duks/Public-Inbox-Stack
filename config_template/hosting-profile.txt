@@ -1,5 +1,6 @@
 {{#ANUBIS_ENABLED}}
-hosting,anubis
+hosting
+anubis
 {{/ANUBIS_ENABLED}}
 {{else#ANUBIS_ENABLED}}
 hosting

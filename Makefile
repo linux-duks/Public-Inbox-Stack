@@ -2,7 +2,8 @@
 include ./containers.mk
 
 # Hosting profile (anubis is included when ANUBIS_ENABLED=true)
-HOSTING_PROFILE = $(shell cat configs/hosting-profile.txt 2>/dev/null | tr -d '[:space:]' || echo hosting)
+# Reads one profile per line from configs/hosting-profile.txt, renders as --profile flags
+HOSTING_PROFILE = $(shell cat configs/hosting-profile.txt 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//;/^$$/d;s/^/--profile /' | tr '\n' ' ' || echo '--profile hosting')
 
 .PHONY: setup setup-dry-run run-hosting watch-hosting run-mirroring pull-mirror run-mirroring-indexed run-indexer purge-indexing obfuscate clean logs help
 
@@ -17,10 +18,10 @@ setup-dry-run: ## Show what would be generated without writing files
 ##@ Running services
 
 run-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) --profile $(HOSTING_PROFILE) up -d
+	$(COMPOSE) $(HOSTING_PROFILE) up -d
 
 watch-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) --profile $(HOSTING_PROFILE) up 
+	$(COMPOSE) $(HOSTING_PROFILE) up 
 
 run-mirroring: ## Start grokmirror daemon (mirroring profile, detached)
 	$(COMPOSE) --profile mirroring up -d
@@ -48,7 +49,7 @@ logs: ## Show logs for all services
 	$(COMPOSE) logs -f
 
 logs-hosting: ## Show logs for hosting services
-	$(COMPOSE) --profile $(HOSTING_PROFILE) logs -f
+	$(COMPOSE) $(HOSTING_PROFILE) logs -f
 
 logs-mirroring: ## Show logs for mirroring services
 	$(COMPOSE) --profile mirroring logs -f
@@ -57,7 +58,7 @@ stop: ## Stop all services
 	$(COMPOSE) down
 
 stop-hosting: ## Stop hosting services
-	$(COMPOSE) --profile $(HOSTING_PROFILE) down
+	$(COMPOSE) $(HOSTING_PROFILE) down
 
 stop-mirroring: ## Stop mirroring services
 	$(COMPOSE) --profile mirroring down
