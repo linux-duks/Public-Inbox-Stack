@@ -124,24 +124,28 @@ process_template() {
 	# section enable/disable feature
 	#
 	# Helper function to process conditional blocks
-	process_conditional_block() {
-		local block_content="$1"
-		local var_name="$2"
-		local var_value="${!var_name:-false}"
-		
-		if [[ "$var_value" == "true" ]]; then
-			# Remove markers
-			block_content=$(echo "$block_content" | sed \
-				-e "s/^{{#${var_name}}}$//" \
-				-e "s/^{{\/${var_name}}}$//")
-		else
-			# Delete entire block between markers
-			block_content=$(echo "$block_content" | sed \
-				-e "/^{{#${var_name}}}$/,/^{{\/${var_name}}}$/d")
-		fi
-		
-		echo "$block_content"
-	}
+    # Helper function to process conditional blocks (supports if/else)
+    process_conditional_block() {
+        local block_content="$1"
+        local var_name="$2"
+        local var_value="${!var_name:-false}"
+        
+        if [[ "$var_value" == "true" ]]; then
+            # Keep IF block (remove markers), Delete entire ELSE block
+            block_content=$(echo "$block_content" | sed \
+                -e "s/^{{#${var_name}}}$//" \
+                -e "s/^{{\/${var_name}}}$//" \
+                -e "/^{{else#${var_name}}}$/,/^{{else\/${var_name}}}$/d")
+        else
+            # Delete entire IF block, Keep ELSE block (remove markers)
+            block_content=$(echo "$block_content" | sed \
+                -e "/^{{#${var_name}}}$/,/^{{\/${var_name}}}$/d" \
+                -e "s/^{{else#${var_name}}}$//" \
+                -e "s/^{{else\/${var_name}}}$//")
+        fi
+        
+        echo "$block_content"
+    }
 	
 	# Process conditional blocks
 	content=$(process_conditional_block "$content" "ACME_ENABLED")
