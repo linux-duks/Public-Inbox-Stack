@@ -76,7 +76,7 @@ services:
       BIND: ":${ANUBIS_PORT}"
       DIFFICULTY: "4"
       SERVE_ROBOTS_TXT: "true"
-      TARGET: "http://nginx:${SERVE_HTTP_PORT}"
+      TARGET: "unix:/run/nginx/nginx.sock"
       POLICY_FNAME: "/data/cfg/botPolicy.yaml"
       OG_PASSTHROUGH: "true"
       OG_EXPIRY_TIME: "24h"
