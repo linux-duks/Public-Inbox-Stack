@@ -55,6 +55,16 @@ http {
         # Correctly load mime types
         include /etc/angie/mime.types;
 
+
+{{#ANUBIS_ENABLED}}
+        location / {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Http-Version $server_protocol;
+            proxy_pass http://anubis;
+        }
+{{/ANUBIS_ENABLED}}
+
         # Static file serving for theme.css
         location /static/css {
             alias /var/www/static/css;
@@ -94,6 +104,15 @@ http {
         # Correctly load mime types
         include /etc/angie/mime.types;
 
+{{#ANUBIS_ENABLED}}
+        location / {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Http-Version $server_protocol;
+            proxy_pass http://anubis;
+        }
+{{/ANUBIS_ENABLED}}
+
         # Static file serving for theme.css
         location = /static/theme.css {
             alias /var/www/static/theme.css;
@@ -110,4 +129,31 @@ http {
         }
     }
 {{/ACME_ENABLED}}
+
+{{#ANUBIS_ENABLED}}
+    server {
+        listen unix:/run/nginx/nginx.sock;
+
+        server_name {{SERVE_HOST}};
+
+        # Correctly load mime types
+        include /etc/angie/mime.types;
+
+        # Static file serving for theme.css
+        location = /static/theme.css {
+            alias /var/www/static/theme.css;
+            default_type text/css;
+        }
+
+        # Proxy all other requests to public-inbox
+        location / {
+            proxy_pass http://public_inbox;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+{{/ANUBIS_ENABLED}}
+
 }
