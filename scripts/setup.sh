@@ -190,6 +190,7 @@ process_template "config_template/grokmirror/clone.conf.template" "configs/grokm
 process_template "config_template/grokmirror/indexed.conf.template" "configs/grokmirror/indexed.conf"
 process_template "config_template/nginx/angie.conf.template" "configs/nginx/angie.conf"
 process_template "config_template/pi-configs/config.template" "configs/pi-configs/config"
+process_template "config_template/hosting-profile.txt" "configs/hosting-profile.txt"
 
 if [[ "$DRY_RUN" = false ]]; then
     log_info "Configuration generation complete!"
