@@ -64,7 +64,7 @@ http {
             proxy_pass http://anubis:{{ANUBIS_PORT}};
         }
 {{/ANUBIS_ENABLED}}
-
+{{else#ANUBIS_ENABLED}}
         # Static file serving for theme.css
         location /static/css {
             alias /var/www/static/css;
@@ -79,6 +79,7 @@ http {
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
         }
+{{else/ANUBIS_ENABLED}}
     }
 
 {{#ACME_ENABLED}}
@@ -112,7 +113,7 @@ http {
             proxy_pass http://anubis:{{ANUBIS_PORT}};
         }
 {{/ANUBIS_ENABLED}}
-
+{{else#ANUBIS_ENABLED}}
         # Static file serving for theme.css
         location = /static/theme.css {
             alias /var/www/static/theme.css;
@@ -127,6 +128,7 @@ http {
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
         }
+{{else/ANUBIS_ENABLED}}
     }
 {{/ACME_ENABLED}}
 
