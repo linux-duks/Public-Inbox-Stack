@@ -121,6 +121,8 @@ Edit `.env` to configure your instance. All variables are documented below:
 | `PI_INDEXING_ENABLE` | Run extindex on container startup | `false` | `true` |
 | `PI_INDEX_LEVEL` | Xapian index level: `basic` (no full-text search), `medium` (no phrase search), `full` (default) | `full` | `medium` |
 | `EXTINDEX_DESCRIPTION` | Description text shown on the extindex main page header | `All Lore` | `My Lore Mirror` |
+| `ANUBIS_ENABLED` | Enable [Anubis](https://github.com/TecharoHQ/anubis) proof-of-work bot protection | `false` | `true` |
+| `ANUBIS_PORT` | Port Anubis binds to (proxies to nginx) | `3000` | `3000` |
 
 #### IMAP Watch (for hosting your own lists)
 
@@ -174,6 +176,7 @@ The template system supports conditional blocks. Setting a variable to `true` in
 | Variable | What it enables |
 |----------|-----------------|
 | `ACME_ENABLED=true` | HTTPS server block with Let's Encrypt certificates in nginx |
+| `ANUBIS_ENABLED=true` | Anubis PoW bot protection integrated into nginx |
 | `PI_IMAP_ENABLED=true` | IMAP inbox definition in public-inbox config |
 | `SPAMCHECK_ENABLED=true` | SpamAssassin integration via `spamc` in public-inbox-watch |
 
@@ -206,10 +209,11 @@ The template system supports conditional blocks. Setting a variable to `true` in
 | `make logs` | Follow logs for all services |
 | `make logs-hosting` | Follow logs for hosting services only |
 | `make logs-mirroring` | Follow logs for mirroring services only |
+| `make obfuscate` | Add `obfuscate = true` to all inbox configs missing it |
 | `make stop` | Stop all services |
 | `make stop-hosting` | Stop hosting services only |
 | `make stop-mirroring` | Stop mirroring services only |
-| `make clean` | Remove generated `configs/` directory |
+| `make clean` | Remove generated `build/` directory |
 | `make help` | Show all available targets |
 
 ## Container Runtime
@@ -239,6 +243,7 @@ When running with `sudo`, the real user/group ID is preserved so files in `data/
 | `hosting` | `public-inbox`, `nginx` | Serves the web interface, NNTP, and HTTP |
 | `mirroring` | `grokmirror` | Clones and fetches repos from upstream |
 | `manual` | `indexer` | One-shot indexing service (run with `run --rm`) |
+| `anubis` | `anubis` | Proof-of-work bot protection (auto-enabled with `ANUBIS_ENABLED=true`) |
 
 ## Workflows
 
@@ -313,14 +318,6 @@ Runs `grok-pull` to clone/fetch git repos from an upstream grokmirror manifest. 
 
 Runs `scripts/index-cloned-repos.sh` to scan `/data/` for cloned v2 inboxes, initialize them with `public-inbox-init -V2`, index with `public-inbox-index`, and update the external index with `public-inbox-extindex --all`.
 
-Features:
-
-- Extracts mailing list addresses from git `refs/meta/origins:i` (no HTTP needed)
-- Falls back to HTTP config fetch from upstream if git origins are unavailable
-- HTTP rate limiting (15s minimum between requests) to avoid bot detection
-- Graceful interrupt handling (SIGINT/SIGTERM)
-- Dry-run mode (`-n`) for previewing operations
-
 ### public-inbox
 
 Runs `scripts/start-public-inbox.sh` which starts the appropriate daemons based on `.env` flags:
@@ -335,7 +332,11 @@ If the data directory is empty on startup, `reinit-from-config.sh` runs automati
 
 ### nginx (Angie)
 
-[Angie](https://angie.software/) — an nginx fork with built-in ACME support. Proxies HTTP/HTTPS to `public-inbox:8080` and streams NNTP (TCP) to `public-inbox:119`. Also serves `theme.css` as a static file.
+[Angie](https://angie.software/) — an nginx fork with built-in ACME support. Proxies HTTP/HTTPS to `public-inbox:8080` and streams NNTP (TCP) to `public-inbox:119`.
+
+### Anubis
+
+When `ANUBIS_ENABLED=true`, [Anubis](https://github.com/TecharoHQ/anubis) is integrated with the Nginx proxy to protect against aggressive bots. It requires visitors to solve a proof-of-work challenge before accessing the site. Traffic will reach Nginx first (for TLS termination), then Anubis listens on `ANUBIS_PORT` (should be private), and proxies back to Nginx via a Unix socket.
 
 ## SSL/TLS Configuration
 
@@ -348,45 +349,17 @@ To enable automatic SSL with Let's Encrypt:
 
 Angie will automatically obtain and renew certificates. The `acme/` directory on the host stores certificate state.
 
-## Directory Structure
+## Email Obfuscation
 
+To hide email addresses from scrapers in the web UI, run:
+
+```bash
+make obfuscate
 ```
-.
-├── example.env                     # Template for .env (copy and edit)
-├── .env                            # Your environment config (git-ignored, created by you)
-├── compose.yaml                    # Docker/podman compose definition
-├── Containerfile                   # Shared container image build
-├── Makefile                        # Build/run targets
-├── containers.mk                   # Container runtime auto-detection
-├── config_template/                # Source templates (tracked in git)
-│   ├── grokmirror/
-│   │   ├── clone.conf.template     # Grokmirror config for clone mode
-│   │   └── indexed.conf.template   # Grokmirror config with indexing hooks
-│   ├── nginx/
-│   │   └── angie.conf.template     # Angie/nginx web server config
-│   └── pi-configs/
-│       ├── config.template         # Public-inbox config template
-│       ├── config.example          # Example with IMAP + spamcheck
-│       └── 216dark.css             # Dark theme for web UI
-├── configs/                        # Generated configs (git-ignored, created by setup.sh)
-│   ├── grokmirror/clone.conf
-│   ├── grokmirror/indexed.conf
-│   ├── nginx/angie.conf
-│   └── pi-configs/config
-├── data/                           # Shared data directory (git-ignored)
-│   ├── <inbox-name>/               # Per-inbox data (git repos, sqlite, xapian)
-│   └── all/                        # External index (extindex)
-├── logs/                           # Public-inbox logs (git-ignored)
-├── acme/                           # Let's Encrypt certificates (git-ignored)
-├── scripts/
-│   ├── setup.sh                    # Config generation from templates
-│   ├── index-cloned-repos.sh       # Manual indexer for cloned repos
-│   ├── start-public-inbox.sh       # Container entrypoint for public-inbox
-│   ├── reinit-from-config.sh       # Reinitialize inboxes from config file
-│   └── copy_config_files.py        # Legacy: fetch remote configs via curl
-├── grokmirror/                     # Grokmirror source (git submodule)
-└── public-inbox/                   # Public-inbox source (git submodule)
-```
+
+This adds `obfuscate = true` to every `[publicinbox "..."]` section in `configs/pi-configs/config` that doesn't already have it.
+
+> **Note:** Running `make setup` overwrites `configs/pi-configs/config`. The script creates a backup (`config.bak`) and reminds you to re-run `make obfuscate`.
 
 ## Troubleshooting
 
