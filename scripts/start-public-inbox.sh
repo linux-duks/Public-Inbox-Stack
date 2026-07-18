@@ -7,9 +7,12 @@ PARENT_PATH=$(
     pwd -P
 )
 
+LEI_CONFIG="/etc/public-inbox/lei-output.pi.config"
+
 # Check each inbox defined in the config file.
 # If an inbox's directory is missing or empty (no git repo), initialize it.
 init_needed=()
+lei_init_list=()
 if [[ -f "$PI_CONFIG" ]]; then
     inbox_names=$(git config -f "$PI_CONFIG" --get-regexp '^publicinbox\..*\.inboxdir$' |
         sed 's/publicinbox\.\(.*\)\.inboxdir.*/\1/' | sort -u)
@@ -26,10 +29,35 @@ if [[ -f "$PI_CONFIG" ]]; then
     done
 fi
 
+# Also check lei-managed inboxes from the lei-output config
+if [[ -f "$LEI_CONFIG" ]]; then
+    lei_inbox_names=$(git config -f "$LEI_CONFIG" --get-regexp '^publicinbox\..*\.inboxdir$' |
+        sed 's/publicinbox\.\(.*\)\.inboxdir.*/\1/' | sort -u)
+    for name in $lei_inbox_names; do
+        inbox_dir=$(git config -f "$LEI_CONFIG" "publicinbox.${name}.inboxdir" 2>/dev/null || true)
+        if [[ -z "$inbox_dir" ]]; then
+            echo "WARN: inboxdir not set for lei inbox '$name', skipping"
+            continue
+        fi
+        if [[ ! -d "$inbox_dir" ]] || [[ -z "$(ls -A "$inbox_dir" 2>/dev/null)" ]]; then
+            echo "Lei inbox '$name' missing or empty at $inbox_dir — needs init"
+            init_needed+=("$name")
+            lei_init_list+=("$name")
+        fi
+    done
+fi
+
 if [[ ${#init_needed[@]} -gt 0 ]]; then
     for name in "${init_needed[@]}"; do
-        echo "Initializing inbox '$name'..."
-        PI_CONFIG=/etc/public-inbox/config.init bash "$PARENT_PATH/reinit-from-config.sh" /etc/public-inbox/config "$name"
+        if [[ " ${lei_init_list[*]} " =~ " ${name} " ]]; then
+            inbox_dir=$(git config -f "$LEI_CONFIG" "publicinbox.${name}.inboxdir")
+            echo "Initializing lei inbox '$name' at $inbox_dir..."
+            mkdir -p "$inbox_dir"
+            public-inbox-init -V2 "$name" "$inbox_dir" "http://localhost/$name" "$name@localhost"
+        else
+            echo "Initializing inbox '$name'..."
+            PI_CONFIG=/etc/public-inbox/config.init bash "$PARENT_PATH/reinit-from-config.sh" /etc/public-inbox/config "$name"
+        fi
     done
 else
     echo "All inboxes present, skipping init"
@@ -85,7 +113,12 @@ if [ "$PI_NNTP_ENABLE" = "true" ]; then
     pids+=($!)
 fi
 
-if [ "$PI_IMAP_ENABLED" = "true" ]; then
+if [ "$PI_IMAP_ENABLE" = "true" ]; then
+    public-inbox-imapd &
+    pids+=($!)
+fi
+
+if [ "$PI_IMAP_ENABLED" = "true" ] || [[ -f "$LEI_CONFIG" ]]; then
     sleep 2
     public-inbox-watch &
     pids+=($!)

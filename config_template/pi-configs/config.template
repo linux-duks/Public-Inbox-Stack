@@ -9,6 +9,9 @@
 		title=216light \
 		media='screen,print,(prefers-color-scheme:light)'
 
+[include]
+	path = /etc/public-inbox/lei-output.pi.config
+
 {{#GROKMIRROR_EXTINDEX_ENABLED}}
 [extindex "all"]
 	topdir = /data/all

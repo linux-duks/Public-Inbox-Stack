@@ -19,6 +19,8 @@ RUN export DEBIAN_FRONTEND=noninteractive &&\
 	# xapian search
 	xapian-omega \
 	libsearch-xapian-perl \
+    lei \
+    yq \
 	# public-inbox \
 	libplack-perl \
 	libinline-c-perl \

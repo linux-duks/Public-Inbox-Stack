@@ -8,18 +8,51 @@ events {
     worker_connections 120;
 }
 
-# TCP/UDP stream proxy for NNTP (port 119)
 stream {
     upstream public_inbox_nntp {
         server public-inbox:119;
     }
 
+    # TCP stream proxy for NNTP (port 119)
     server {
         listen 119;
         proxy_connect_timeout 10s;
         proxy_timeout 1h;
         proxy_pass public_inbox_nntp;
     }
+
+    upstream public_inbox_imapd {
+        server public-inbox:143;
+    }
+
+    # TCP stream proxy for IMAP (port 143)
+    server {
+        listen 143;
+        proxy_connect_timeout 10s;
+        proxy_timeout 1h;
+        proxy_pass public_inbox_nntp;
+    }
+
+{{#ACME_ENABLED}}
+    server {
+        listen 993 ssl;
+        proxy_connect_timeout 10s;
+        proxy_timeout 1h;
+        proxy_pass public_inbox_nntp;
+
+        # SSL certificates from ACME
+        ssl_certificate $acme_cert_letsencrypt;
+        ssl_certificate_key $acme_cert_key_letsencrypt;
+
+        # SSL configuration
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+
+        # Link ACME client for auto-renewal
+        acme letsencrypt;
+    }
+{{/ACME_ENABLED}}
 }
 
 http {
@@ -32,7 +65,7 @@ http {
 
     acme_client letsencrypt https://acme-v02.api.letsencrypt.org/directory
                 email={{ACME_EMAIL}}
-                key_type=ecdsa;
+public-inbox-imapd;
 {{/ACME_ENABLED}}
 
     # Upstream for public-inbox HTTP service

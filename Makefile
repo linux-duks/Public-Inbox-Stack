@@ -38,6 +38,9 @@ run-indexer: ## Run manual indexing of cloned repos
 purge-indexing: ## Purge public-inbox indexing data (preserves grokmirror clones)
 	$(COMPOSE) --profile manual run --rm indexer bash /scripts/purge-indexing.sh -d /data
 
+run-lei: ## Start lei-daemon (lei profile)
+	$(COMPOSE) --profile lei up -d lei-daemon
+
 run-all: setup run-mirroring run-hosting ## Setup, mirror, and host everything
 
 ##@ Utilities
@@ -54,6 +57,9 @@ logs-hosting: ## Show logs for hosting services
 logs-mirroring: ## Show logs for mirroring services
 	$(COMPOSE) --profile mirroring logs -f
 
+logs-lei: ## Follow lei-daemon logs
+	$(COMPOSE) --profile lei logs -f
+
 stop: ## Stop all services
 	$(COMPOSE) down
 
@@ -62,6 +68,9 @@ stop-hosting: ## Stop hosting services
 
 stop-mirroring: ## Stop mirroring services
 	$(COMPOSE) --profile mirroring down
+
+stop-lei: ## Stop lei-daemon
+	$(COMPOSE) --profile lei down
 
 clean: ## Remove generated build files
 	rm -rf build/
