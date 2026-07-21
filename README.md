@@ -66,6 +66,11 @@ make run-indexer
 
 # 6. Start hosting (public-inbox + nginx)
 make run-hosting
+
+# 7. (Optional) Import messages from remote externals via lei
+cp example.lei.rules.yaml configs/lei.rules.yaml
+# Edit configs/lei.rules.yaml with your searches, then:
+make run-lei
 ```
 
 Visit `http://localhost:8088` (or your configured port) to see your instance.
@@ -121,6 +126,7 @@ Edit `.env` to configure your instance. All variables are documented below:
 | `PI_INDEXING_ENABLE` | Run extindex on container startup | `false` | `true` |
 | `PI_INDEX_LEVEL` | Xapian index level: `basic` (no full-text search), `medium` (no phrase search), `full` (default) | `full` | `medium` |
 | `EXTINDEX_DESCRIPTION` | Description text shown on the extindex main page header | `All Lore` | `My Lore Mirror` |
+| `LEI_ENABLED` | Enable lei-daemon for importing messages from remote externals via saved searches | `false` | `true` |
 | `ANUBIS_ENABLED` | Enable [Anubis](https://github.com/TecharoHQ/anubis) proof-of-work bot protection | `false` | `true` |
 | `ANUBIS_PORT` | Port Anubis binds to (proxies to nginx) | `3000` | `3000` |
 
@@ -244,6 +250,7 @@ When running with `sudo`, the real user/group ID is preserved so files in `data/
 | `mirroring` | `grokmirror` | Clones and fetches repos from upstream |
 | `manual` | `indexer` | One-shot indexing service (run with `run --rm`) |
 | `anubis` | `anubis` | Proof-of-work bot protection (auto-enabled with `ANUBIS_ENABLED=true`) |
+| `lei` | `lei-daemon` | Search and import messages from remote public-inbox externals |
 
 ## Workflows
 
@@ -285,6 +292,71 @@ If you have your own mailing lists (not mirrored):
 3. `make setup && make run-hosting`
 
 The `public-inbox-watch` daemon will poll the IMAP mailbox and ingest new messages.
+
+### Lei: Importing Messages via Saved Searches
+
+The `lei-daemon` service runs periodic `lei q` saved searches against remote
+public-inbox archives and imports the results into local Maildir inboxes watched
+by `public-inbox-watch`.
+
+**Setup:**
+
+1. `cp example.lei.rules.yaml configs/lei.rules.yaml`
+2. Edit `configs/lei.rules.yaml` with your searches (see format below)
+3. Set `LEI_ENABLED=true` in `.env`
+4. `make setup && make run-lei && make run-hosting`
+
+**How it works:**
+
+On startup the daemon:
+- Parses `configs/lei.rules.yaml`
+- Creates `lei q` saved searches for each entry under `maildirs`
+- Initializes public-inbox V2 inboxes if needed (`public-inbox-init -V2`)
+- Generates `lei-output.pi.config` (included into the main pi-config via `[include]`)
+- Enters a loop running `lei up --all` every `check_interval` minutes
+
+Maildir outputs are stored under `./maildirs/` (mounted to `/Mail`), watched by
+`public-inbox-watch`, and served via `public-inbox-httpd` like any other inbox.
+
+**Config file format** (`configs/lei.rules.yaml`):
+
+```yaml
+base-dir: "/Mail"           # container path for Maildir outputs
+check_interval: "360"        # minutes between lei up --all runs
+serving_address: "localhost" # used to derive address = NAME@localhost
+output-config: "/etc/public-inbox/lei-output.pi.config"
+
+default_settings: &default_settings
+  host: "https://lore.kernel.org/all"  # lore origin / external inbox URL
+  threads: true             # pull all emails in matching threads (-t)
+  obfuscate: true           # obfuscate email addresses in web UI
+
+maildirs:
+  "my-search":              # name becomes the inbox name and URL path
+    <<: *default_settings   # inherit defaults, override any key below
+    query: "dfn:drivers/gpu/* AND rt:2.weeks.ago.."
+  "my-other-search":
+    host: "https://another.lore.instance/all"
+    query: "f:maintainer@example.com"
+    threads: false          # override default
+```
+
+**Per-maildir keys:**
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `query` | yes | — | Search terms using [lei-q prefixes](https://public-inbox.org/lei-q.html) |
+| `host` | no | `default_settings.host` | Remote public-inbox URL to search |
+| `threads` | no | `default_settings.threads` | Pull entire threads containing matches (`-t` flag) |
+| `obfuscate` | no | `default_settings.obfuscate` | Obfuscate addresses in web UI |
+
+**Makefile targets:**
+
+```bash
+make run-lei    # start the lei-daemon
+make stop-lei   # stop it
+make logs-lei   # tail its logs
+```
 
 ### Pinning Inboxes to the Top
 
