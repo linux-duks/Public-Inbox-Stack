@@ -50,6 +50,16 @@ parse_config() {
         DEFAULT_HOST=""
     fi
 
+    DEFAULT_THREADS=$(yq -r '.default_settings.threads // "false"' "$CONFIG_FILE")
+    if [[ "$DEFAULT_THREADS" == "null" ]]; then
+        DEFAULT_THREADS="false"
+    fi
+
+    DEFAULT_OBFUSCATE=$(yq -r '.default_settings.obfuscate // "false"' "$CONFIG_FILE")
+    if [[ "$DEFAULT_OBFUSCATE" == "null" ]]; then
+        DEFAULT_OBFUSCATE="false"
+    fi
+
     MAILDIR_NAMES=$(yq -r '.maildirs | keys | .[]' "$CONFIG_FILE" 2>/dev/null || true)
     if [[ -z "$MAILDIR_NAMES" ]]; then
         echo "[lei-daemon] WARNING: No maildirs defined in config." >&2
@@ -60,6 +70,7 @@ setup_search() {
     local name="$1"
     local host="$2"
     local query="$3"
+    local threads="$4"
     local output_path="$BASE_DIR/$name/INBOX"
     local parent_dir="$BASE_DIR/$name"
     local query_file="$parent_dir/.lei-query"
@@ -68,9 +79,14 @@ setup_search() {
 
     mkdir -p "$parent_dir"
 
+    local thread_flag=""
+    if [[ "$threads" == "true" ]]; then
+        thread_flag="-t"
+    fi
+
     if [[ ! -d "$output_path" ]]; then
-        echo "[lei-daemon]   Creating new search: lei q -I $host -o $output_path --dedupe=mid"
-        lei q -I "$host" -o "$output_path" --dedupe=mid "$query"
+        echo "[lei-daemon]   Creating new search: lei q -I $host $thread_flag -o $output_path --dedupe=mid"
+        lei q -I "$host" $thread_flag -o "$output_path" --dedupe=mid "$query"
         echo "$query" > "$query_file"
         echo "[lei-daemon]   Search created."
     else
@@ -84,7 +100,7 @@ setup_search() {
             echo "[lei-daemon]   Old: ${existing_query:-<unknown>}"
             echo "[lei-daemon]   New: $query"
             lei forget-search "$output_path" 2>/dev/null || true
-            lei q -I "$host" -o "$output_path" --dedupe=mid --augment "$query"
+            lei q -I "$host" $thread_flag -o "$output_path" --dedupe=mid --augment "$query"
             echo "$query" > "$query_file"
             echo "[lei-daemon]   Search updated."
         else
@@ -129,12 +145,18 @@ generate_config() {
             [[ -z "$name" ]] && continue
             local inboxdir="$BASE_DIR/$name"
             local watch_path="$BASE_DIR/$name/INBOX"
+            local obfuscate_bool
+            obfuscate_bool=$(yq -r ".maildirs[\"$name\"].obfuscate // \"$DEFAULT_OBFUSCATE\"" "$CONFIG_FILE")
+            if [[ "$obfuscate_bool" != "true" ]]; then
+                obfuscate_bool="false"
+            fi
 
             printf '[publicinbox "%s"]\n' "$name"
             printf '\taddress = %s@%s\n' "$name" "$SERVING_ADDRESS"
             printf '\turl = /%s\n' "$name"
             printf '\tinboxdir = %s\n' "$inboxdir"
             printf '\twatch = maildir:%s\n' "$watch_path"
+            printf '\tobfuscate = %s\n' "$obfuscate_bool"
             echo ""
         done <<<"$MAILDIR_NAMES"
     } > "$OUTPUT_CONFIG"
@@ -143,7 +165,7 @@ generate_config() {
 }
 
 startup() {
-    local host query
+    local host query threads
 
     while IFS= read -r name; do
         [[ -z "$name" ]] && continue
@@ -163,8 +185,16 @@ startup() {
             continue
         fi
 
+        threads=$(yq -r ".maildirs[\"$name\"].threads" "$CONFIG_FILE")
+        if [[ -z "$threads" || "$threads" == "null" ]]; then
+            threads="$DEFAULT_THREADS"
+        fi
+        if [[ "$threads" != "true" ]]; then
+            threads="false"
+        fi
+
         init_inbox "$name"
-        setup_search "$name" "$host" "$query"
+        setup_search "$name" "$host" "$query" "$threads"
     done <<<"$MAILDIR_NAMES"
 
     generate_config

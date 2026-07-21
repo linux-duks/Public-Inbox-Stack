@@ -34,17 +34,23 @@
 #   kw:      match the given keywords
 
 #
+# tip: use double quotes for email addresses
 #
 # Example:
-# lei q -I $HOST -o $base-dir/$NAME/INBOX --dedupe=mid $query
+# lei q -I $HOST -t -o $base-dir/$NAME/INBOX --dedupe=mid $query
 # Crontab used for lei up --all
 
 base-dir: "/Mail"
-check_interval: "30" # minutes
+check_interval: "360" # minutes
 serving_address: "localhost"
 output-config: "/etc/public-inbox/lei-output.pi.config"
 default_settings: &default_settings
+  # change default lore origin
   host: "https://lore.kernel.org/all"
+  # when reading with lei, pull all emails in matching threads
+  threads: true
+  # for serving public-inbox, obfuscate addresses from main page
+  obfuscate: true
 
 maildirs:
   "rust":
