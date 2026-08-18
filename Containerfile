@@ -1,4 +1,6 @@
-FROM docker.io/library/debian:trixie-slim as base
+FROM docker.io/library/python:3.14-trixie as base
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 ARG USER_ID=1000
 ARG GROUP_ID=1000
@@ -10,8 +12,8 @@ RUN export DEBIAN_FRONTEND=noninteractive &&\
 	apt-get install -y \
 	git \
 	perl \
-	python3 \
-	python3-pip \
+	# python3 \
+	# python3-pip \
 	sqlite3 \
 	curl \
 	make \
@@ -33,12 +35,10 @@ RUN export DEBIAN_FRONTEND=noninteractive &&\
 	spamd \
 	spamc
 
-
-
 # install grokmirror from source
 WORKDIR /grokmirror
 COPY ./grokmirror/ /grokmirror/
-RUN pip install --break-system-packages .
+RUN uv venv && uv pip install .
 
 # install public-inbox from source
 WORKDIR /public-inbox
@@ -51,4 +51,7 @@ RUN perl Makefile.PL && \
 	make && \
 	make install
 
-WORKDIR /data
+COPY ./pistack-controller /pistack-controller
+RUN cd /pistack-controller && uv venv && uv pip install .
+
+WORKDIR /pistack-controller

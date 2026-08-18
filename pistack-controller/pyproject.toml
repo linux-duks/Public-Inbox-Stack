@@ -1,0 +1,23 @@
+[project]
+name = "pistack-controller"
+version = "0.1.0"
+description = "Controll the Public-Inbox-Stack"
+authors = [
+    { name = "Rafael Passos", email = "rafael@rcpassos.me" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "jinja2>=3.1.6",
+    "pyyaml>=6.0.3",
+    "tinysupervisor",
+]
+
+[project.scripts]
+pistack-controller = "pistack_controller:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+tinysupervisor = { git = "https://gitlab.com/auyer/tinySupervisor" }

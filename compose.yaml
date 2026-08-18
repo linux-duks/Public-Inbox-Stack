@@ -6,99 +6,7 @@ networks:
     driver: bridge
 
 services:
-  grokmirror:
-    profiles: ["mirroring"]
-    userns_mode: keep-id
-    build:
-      context: .
-      dockerfile: ./Containerfile
-    environment:
-      - HOME=/tmp
-      - PI_DATA_DIR=/data
-      - GROKMIRROR_MODE=${GROKMIRROR_MODE:-clone}
-      - GROKMIRROR_EXTINDEX_ENABLED=${GROKMIRROR_EXTINDEX_ENABLED:-true}
-    user: "${UID:-1000}:${GID:-1000}"
-    volumes:
-      - ./configs/grokmirror/${GROKMIRROR_MODE:-clone}.conf:/config/grokmirror.conf:z
-      - ./configs/pi-configs/:/etc/public-inbox/:z
-      - ./data/:/data:z
-      - ./scripts:/scripts:z
-    # defaults to running in daemon mode. "pull-mirror" option pulls once
-    command: grok-pull -v --continuous -c /config/grokmirror.conf
-    stop_grace_period: 90s
-    restart: on-failure
-    networks:
-      - lore
-
-  indexer:
-    profiles: ["manual"]
-    userns_mode: keep-id
-    build:
-      context: .
-      dockerfile: ./Containerfile
-    environment:
-      - HOME=/tmp
-      - PI_DATA_DIR=/data
-      - PI_CONFIG=/etc/public-inbox/config
-    env_file:
-      - .env
-    user: "${UID:-1000}:${GID:-1000}"
-    volumes:
-      - ./configs/pi-configs/:/etc/public-inbox/:z
-      - ./data/:/data:z
-      - ./scripts:/scripts:z
-    command: bash /scripts/index-cloned-repos.sh -o ${MIRROR_UPSTREAM_HOST}
-    networks:
-      - lore
-
-  nginx:
-    profiles: ["hosting"]
-    image: docker.angie.software/angie:minimal
-    ports:
-      - "${SERVE_HTTP_PORT:-80}:80"
-      - "${SERVE_HTTPS_PORT:-443}:443"
-      - "${SERVE_NNTP_PORT:-119}:119"
-      - "${SERVE_IMAP_PORT:-143}:143"
-    volumes:
-      - ./configs/nginx/angie.conf:/etc/angie/angie.conf:z
-      - ./acme:/var/lib/angie/acme:z
-      - ./public-inbox/contrib/css/:/var/www/static/css/:ro
-      - socket_dir:/run/nginx
-    depends_on:
-      - public-inbox
-    restart: unless-stopped
-    networks:
-      - lore
-
-  anubis:
-    image: ghcr.io/techarohq/anubis:latest
-    profiles: ["anubis"]
-    environment:
-      BIND: ":${ANUBIS_PORT}"
-      DIFFICULTY: "5"
-      SERVE_ROBOTS_TXT: "true"
-      TARGET: "unix:/run/nginx/nginx.sock"
-      POLICY_FNAME: "/data/cfg/botPolicy.yaml"
-      OG_PASSTHROUGH: "true"
-      OG_EXPIRY_TIME: "24h"
-    healthcheck:
-      test: ["CMD", "anubis", "--healthcheck"]
-      interval: 5s
-      timeout: 30s
-      retries: 5
-      start_period: 500ms
-    ports:
-      - ${ANUBIS_PORT}:${ANUBIS_PORT}
-    volumes:
-      - socket_dir:/run/nginx
-      - "./configs/anubis/:/data/cfg/:ro"
-    depends_on:
-      - nginx
-    networks:
-      - lore
-
-  public-inbox:
-    profiles: ["hosting"]
+  public-inbox-stack:
     userns_mode: keep-id
     restart: unless-stopped
     build:
@@ -128,28 +36,70 @@ services:
       - ./configs/pi-configs/:/etc/public-inbox/:z
       - ./logs/:/var/log/public-inbox/:z
     command: >
-      bash /scripts/start-public-inbox.sh
+      uv python main.py
     networks:
       - lore
 
-  lei-daemon:
-    profiles: ["lei"]
-    userns_mode: keep-id
-    build:
-      context: .
-      dockerfile: ./Containerfile
-    user: "${UID:-1000}:${GID:-1000}"
-    environment:
-      - HOME=/tmp
-    volumes:
-      - ./configs/lei.rules.yaml:/config/lei.rules.yaml:z
-      - ./maildirs/:/Mail:z
-      - ./configs/pi-configs/:/etc/public-inbox/:z
-      - ./scripts:/scripts:z
-    command: bash /scripts/lei-daemon.sh /config/lei.rules.yaml
-    restart: unless-stopped
-    networks:
-      - lore
+  # grokmirror:
+  #   userns_mode: keep-id
+  #   build:
+  #     context: .
+  #     dockerfile: ./Containerfile
+  #   environment:
+  #     - HOME=/tmp
+  #     - PI_DATA_DIR=/data
+  #     - GROKMIRROR_MODE=${GROKMIRROR_MODE:-clone}
+  #     - GROKMIRROR_EXTINDEX_ENABLED=${GROKMIRROR_EXTINDEX_ENABLED:-true}
+  #   user: "${UID:-1000}:${GID:-1000}"
+  #   volumes:
+  #     - ./configs/grokmirror/${GROKMIRROR_MODE:-clone}.conf:/config/grokmirror.conf:z
+  #     - ./configs/pi-configs/:/etc/public-inbox/:z
+  #     - ./data/:/data:z
+  #     - ./scripts:/scripts:z
+  #   # defaults to running in daemon mode. "pull-mirror" option pulls once
+  #   command: grok-pull -v --continuous -c /config/grokmirror.conf
+  #   stop_grace_period: 90s
+  #   restart: on-failure
+  #   networks:
+  #     - lore
+  #
+  # indexer:
+  #   userns_mode: keep-id
+  #   build:
+  #     context: .
+  #     dockerfile: ./Containerfile
+  #   environment:
+  #     - HOME=/tmp
+  #     - PI_DATA_DIR=/data
+  #     - PI_CONFIG=/etc/public-inbox/config
+  #   env_file:
+  #     - .env
+  #   user: "${UID:-1000}:${GID:-1000}"
+  #   volumes:
+  #     - ./configs/pi-configs/:/etc/public-inbox/:z
+  #     - ./data/:/data:z
+  #     - ./scripts:/scripts:z
+  #   command: bash /scripts/index-cloned-repos.sh -o ${MIRROR_UPSTREAM_HOST}
+  #   networks:
+  #     - lore
+  #
+  # lei-daemon:
+  #   userns_mode: keep-id
+  #   build:
+  #     context: .
+  #     dockerfile: ./Containerfile
+  #   user: "${UID:-1000}:${GID:-1000}"
+  #   environment:
+  #     - HOME=/tmp
+  #   volumes:
+  #     - ./configs/lei.rules.yaml:/config/lei.rules.yaml:z
+  #     - ./maildirs/:/Mail:z
+  #     - ./configs/pi-configs/:/etc/public-inbox/:z
+  #     - ./scripts:/scripts:z
+  #   command: bash /scripts/lei-daemon.sh /config/lei.rules.yaml
+  #   restart: unless-stopped
+  #   networks:
+  #     - lore
 
 volumes:
   socket_dir:
