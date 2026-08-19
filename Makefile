@@ -1,7 +1,7 @@
 # Include shared container runtime detection
 include ./containers.mk
 
-.PHONY: run watch stop logs build index purge obfuscate render help
+.PHONY: run watch stop logs build rebuild index purge obfuscate render help
 
 ##@ Lifecycle
 
@@ -19,6 +19,9 @@ logs: ## Show logs for all services
 
 build: ## Build the controller image
 	$(COMPOSE) build
+
+rebuild: ## Rebuild the controller image from scratch (no cache) and restart
+	$(COMPOSE) build --no-cache
 
 ##@ One-shot operations (run inside the controller container)
 
