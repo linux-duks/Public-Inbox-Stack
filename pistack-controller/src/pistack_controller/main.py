@@ -12,7 +12,7 @@ import argparse
 import os
 import sys
 
-from tinysupervisor import Job, init_supervisor
+from tinysupervisor import Job, RecurrentJob, init_supervisor
 
 from pistack_controller import render
 from pistack_controller.config import Config, ConfigError, load_config
@@ -26,7 +26,12 @@ from pistack_controller.purge import purge_indexing
 
 def init_folders(config: Config) -> int:
     """Create the /data subfolders and the extindex description file."""
-    for path in (config.paths.mirror, config.paths.imap, config.paths.lei, config.paths.extindex):
+    for path in (
+        config.paths.mirror,
+        config.paths.imap,
+        config.paths.lei,
+        config.paths.extindex,
+    ):
         os.makedirs(path, exist_ok=True)
     description_file = os.path.join(config.paths.extindex, "description")
     if not os.path.isfile(description_file):
@@ -41,7 +46,9 @@ def build_supervisor(config: Config):
         keep_running=True,
     )
 
-    supervisor.register(Job(name="init_folders", executable=lambda: init_folders(config)))
+    supervisor.register(
+        Job(name="init_folders", executable=lambda: init_folders(config))
+    )
 
     if config.lei.enabled:
         supervisor.register(lei_init_job(config))
@@ -51,29 +58,26 @@ def build_supervisor(config: Config):
         supervisor.register(grokmirror_cronjob(config))
         if config.mirroring.indexing:
             supervisor.register(
-                Job(
+                RecurrentJob(
                     name="index",
                     executable=lambda: index_cloned_repos(config),
                     depends=["grokmirror"],
-                    dependency_mode="run_after",
                 )
             )
             if config.mirroring.extindex:
                 supervisor.register(
-                    Job(
+                    RecurrentJob(
                         name="extindex",
                         executable=lambda: run_extindex(config),
                         depends=["index"],
-                        dependency_mode="run_after",
                     )
                 )
         elif config.mirroring.extindex:
             supervisor.register(
-                Job(
+                RecurrentJob(
                     name="extindex",
                     executable=lambda: run_extindex(config),
                     depends=["grokmirror"],
-                    dependency_mode="run_after",
                 )
             )
 

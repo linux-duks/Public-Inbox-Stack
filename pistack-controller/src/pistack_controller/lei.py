@@ -127,7 +127,6 @@ def lei_init_job(config: Config) -> Job:
         name="lei_init",
         executable=lambda: lei_init(config),
         depends=["init_folders"],
-        dependency_mode="completed",
     )
 
 
@@ -137,5 +136,4 @@ def lei_up_cronjob(config: Config) -> CronJob:
         interval=float(config.lei.check_interval) * 60,
         command="lei up --all",
         depends=["lei_init"],
-        dependency_mode="completed",
     )

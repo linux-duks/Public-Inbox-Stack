@@ -85,7 +85,7 @@ dependencies = [
 requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "tinysupervisor", git = "https://gitlab.com/auyer/tinySupervisor" },
+    { name = "tinysupervisor", git = "https://github.com/auyer/tinySupervisor" },
 ]
 
 [[package]]
@@ -220,7 +220,7 @@ wheels = [
 [[package]]
 name = "tinysupervisor"
 version = "0.1.0"
-source = { git = "https://gitlab.com/auyer/tinySupervisor#30432d2409fa59d2bcb003ce1097cead4c0df329" }
+source = { git = "https://github.com/auyer/tinySupervisor#938d99391fe85919174ab8aad7f29450d488a57a" }
 dependencies = [
     { name = "networkx" },
     { name = "prometheus-client" },

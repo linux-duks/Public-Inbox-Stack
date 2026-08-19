@@ -16,5 +16,4 @@ def grokmirror_cronjob(config: Config) -> CronJob:
         interval=float(config.mirroring.interval),
         command=f"grok-pull -v -c {GROKMIRROR_CONF}",
         depends=["init_folders"],
-        dependency_mode="completed",
     )

@@ -21,7 +21,6 @@ def _service(name: str, command: str, depends: list[str]) -> Service:
         name=name,
         command=command,
         depends=depends,
-        dependency_mode="completed",
         autorestart=True,
     )
 
@@ -53,5 +52,4 @@ def ensure_inboxes_job(config: Config) -> Job:
         name="ensure_inboxes",
         executable=lambda: ensure_inboxes(config),
         depends=["init_folders"],
-        dependency_mode="completed",
     )
