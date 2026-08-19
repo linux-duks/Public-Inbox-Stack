@@ -1,6 +1,8 @@
 """public-inbox long-running serving services.
 
-Port of ``scripts/start-public-inbox.sh``. Each daemon is a tinySupervisor
+Port of ``scripts/start-public-inbox.sh``. The multi-protocol
+``public-inbox-netd`` daemon (HTTP/IMAP/NNTP) replaces the standalone
+``-httpd``/``-nntpd``/``-imapd`` daemons. Each daemon is a tinySupervisor
 ``Service`` (kept alive, autorestarted), replacing the old PID-juggling loop.
 """
 
@@ -25,16 +27,28 @@ def _service(name: str, command: str, depends: list[str]) -> Service:
     )
 
 
+def _netd_command(config: Config) -> str:
+    # Listener addresses come from the config (hosting.*_port). These are the
+    # internal ports nginx proxies to, so they must stay in sync with the
+    # proxy config.
+    listeners = []
+    if config.hosting.http:
+        listeners.append(f"http://0.0.0.0:{config.hosting.http_port}")
+    if config.hosting.nntp:
+        listeners.append(f"nntp://0.0.0.0:{config.hosting.nntp_port}")
+    if config.hosting.imap:
+        listeners.append(f"imap://0.0.0.0:{config.hosting.imap_port}")
+
+    return "public-inbox-netd " + " ".join(f"-l {listener}" for listener in listeners)
+
+
 def public_inbox_services(config: Config) -> list[Service]:
     depends = ["ensure_inboxes"] if config.hosting.enabled else []
     services: list[Service] = []
 
-    if config.hosting.http:
-        services.append(_service("public-inbox-httpd", "public-inbox-httpd", depends))
-    if config.hosting.nntp:
-        services.append(_service("public-inbox-nntpd", "public-inbox-nntpd", depends))
-    if config.hosting.imap:
-        services.append(_service("public-inbox-imapd", "public-inbox-imapd", depends))
+    if config.hosting.http or config.hosting.nntp or config.hosting.imap:
+        services.append(_service("public-inbox-netd", _netd_command(config), depends))
+
     if config.imap.spamcheck_enabled:
         services.append(_service("spamd", SPAMD_COMMAND, depends))
 
@@ -42,7 +56,9 @@ def public_inbox_services(config: Config) -> list[Service]:
     if config.lei.enabled:
         watch_depends.append("lei_init")
     if config.imap.enabled or config.lei.enabled:
-        services.append(_service("public-inbox-watch", "public-inbox-watch", watch_depends))
+        services.append(
+            _service("public-inbox-watch", "public-inbox-watch", watch_depends)
+        )
 
     return services
 

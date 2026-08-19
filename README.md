@@ -227,7 +227,8 @@ Runs `pistack-controller serve` — a tinySupervisor workflow:
 - **`index` / `extindex`** (Jobs, `run_after`) — index cloned repos / update extindex
 - **`lei_init`** (Job) + **`lei_up`** (CronJob) — saved searches + periodic updates
 - **`ensure_inboxes`** (Job) — reinitialize missing inbox dirs from the config
-- **`public-inbox-httpd` / `public-inbox-nntpd` / `public-inbox-imapd`** (Services)
+- **`public-inbox-netd`** (Service) — single multi-protocol daemon serving
+  HTTP (`:8080`), NNTP (`:119`) and IMAP (`:143`) per the `hosting.*` flags
 - **`public-inbox-watch`** (Service) — when IMAP or lei is enabled
 - **`spamd`** (Service) — when `imap.spamcheck_enabled`
 

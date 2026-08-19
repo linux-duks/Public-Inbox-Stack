@@ -24,10 +24,11 @@ hosting:
 
   # Public-inbox serving URL (public)
   serve_host: lore.domain.tld
-  http_port: 80
+  # changing these ports require changing the compose files too
+  http_port: 8080
   https_port: 8443
   nntp_port: 8119
-  imap_port: 143
+  imap_port: 8143
 
 indexing:
   # Index level: basic (no full-text search), medium (no phrase search), full (default)

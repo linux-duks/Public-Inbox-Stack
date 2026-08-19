@@ -36,10 +36,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "nntp": False,
         "imap": False,
         "serve_host": "localhost",
-        "http_port": 80,
-        "https_port": 443,
-        "nntp_port": 119,
-        "imap_port": 143,
+        "http_port": 8080,
+        "https_port": 8443,
+        "nntp_port": 8119,
+        "imap_port": 8143,
     },
     "indexing": {"level": "full"},
     "mirroring": {
@@ -95,10 +95,10 @@ class Hosting:
     nntp: bool = False
     imap: bool = False
     serve_host: str = "localhost"
-    http_port: int = 80
-    https_port: int = 443
-    nntp_port: int = 119
-    imap_port: int = 143
+    http_port: int = 8080
+    https_port: int = 8443
+    nntp_port: int = 8119
+    imap_port: int = 8143
 
     @classmethod
     def from_dict(cls, data: dict) -> "Hosting":
