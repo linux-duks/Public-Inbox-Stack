@@ -54,4 +54,7 @@ RUN perl Makefile.PL && \
 COPY ./pistack-controller /pistack-controller
 RUN cd /pistack-controller && uv venv && uv pip install .
 
+# Put grokmirror and pistack-controller console scripts on PATH
+ENV PATH="/grokmirror/.venv/bin:/pistack-controller/.venv/bin:${PATH}"
+
 WORKDIR /pistack-controller

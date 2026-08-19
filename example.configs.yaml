@@ -1,3 +1,19 @@
+# pistack-controller configuration
+#
+# Copy to configs.yaml (gitignored) and edit. Any leaf value can be overridden
+# from .env using the UPPER_SNAKE_CASE of its dotted path, e.g.:
+#   imap.inboxes.0.url   ->   IMAP_INBOXES_0_URL
+#
+# Data layout: mirroring, imap and lei live in subfolders of a shared /data
+# parent. extindex ("all") is the cross-inbox aggregate.
+
+paths:
+  root: /data
+  mirror: /data/mirror
+  imap: /data/imap
+  lei: /data/lei
+  extindex: /data/all
+
 hosting:
   enabled: true
 
@@ -20,9 +36,12 @@ indexing:
 mirroring:
   enabled: true
   upstream_host: https://lore.other-domain.tld
-  # grokmirror can trigger indexing automatically. 
-  # Recommended if hosting is on
-  grokmirror_indexing: false
+  # seconds between grok-pull runs (scheduling handled by tinySupervisor)
+  interval: 7200
+  # index after each pull (replaces GROKMIRROR_MODE=indexed)
+  indexing: false
+  # run cross-inbox extindex after indexing/pulls
+  extindex: true
 
 imap:
   enabled: false
@@ -30,68 +49,24 @@ imap:
   inboxes:
     - id: list.name
       address: name.list.domain.tld
+      # credentials belong in .env as IMAP_INBOXES_0_URL (or here, not committed)
       url: imaps://user:pass@imap.server.tld:993/INBOX
-    - id: list.name2
-      address: name.list.domain.tld
-      url: imaps://user:pass@imap.server.tld:993/ANOTHER_FOLDER
 
 lei:
   enabled: false
-  #SEARCH TERMS
-  #
-  # "lei q" supports the same search prefixes used by HTTP(S) public-inbox instances:
-  #
-  #   s:        match within Subject  e.g. s:"a quick brown fox"
-  #   d:        match date-time range, git "approxidate" formats supported
-  #             Open-ended ranges such as `d:last.week..' and
-  #             `d:..2.days.ago' are supported
-  #   b:        match within message body, including text attachments
-  #   nq:       match non-quoted text within message body
-  #   q:        match quoted text within message body
-  #   n:        match filename of attachment(s)
-  #   t:        match within the To header
-  #   c:        match within the Cc header
-  #   f:        match within the From header
-  #   a:        match within the To, Cc, and From headers
-  #   tc:       match within the To and Cc headers
-  #   l:        match contents of the List-Id header
-  #   bs:       match within the Subject and body
-  #   dfn:      match filename from diff
-  #   dfa:      match diff removed (-) lines
-  #   dfb:      match diff added (+) lines
-  #   dfhh:     match diff hunk header context (usually a function name)
-  #   dfctx:    match diff context lines
-  #   dfpre:    match pre-image git blob ID
-  #   dfpost:   match post-image git blob ID
-  #   dfblob:   match either pre or post-image git blob ID
-  #   patchid:  match `git patch-id --stable' output
-  #   rt:       match received time, like `d:' if sender's clock was correct
-  #
-  # Additional search prefixes which only affect the local lei/store:
-  #
-  #   L:       match the given label
-  #   kw:      match the given keywords
-
-  #
-  # tip: use double quotes for email addresses
-  #
-  # Example:
-  # lei q -I $HOST -t -o $base-dir/$NAME/INBOX --dedupe=mid $query
-  # Crontab used for lei up --all
-
-  base-dir: "lei"
-  check_interval: "360" # minutes
-  serving_address: "localhost"
-  output-config: "/etc/public-inbox/lei-output.pi.config"
-  default_settings: &default_settings
-    # change default lore origin
-    host: "https://lore.kernel.org/all"
-    # when reading with lei, pull all emails in matching threads
+  check_interval: 360 # minutes between lei up --all runs
+  serving_address: localhost
+  output_config: /etc/public-inbox/lei-output.pi.config
+  default_settings:
+    host: https://lore.kernel.org/all
     threads: true
-    # for serving public-inbox, obfuscate addresses from main page
     obfuscate: true
 
   maildirs:
+    # example:
+    # "my-search":
+    #   query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'
+    #   host: https://another.lore.instance/all
+    #   threads: false
     "rust":
-      <<: *default_settings
       query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'

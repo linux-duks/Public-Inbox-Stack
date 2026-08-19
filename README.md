@@ -1,226 +1,249 @@
 # Public-Inbox-Stack
 
-Scripts and containers for mirroring and hosting [public-inbox](https://public-inbox.org/) mailing list archivers. Batteries included, all in containers.
+Scripts and containers for igesting, mirroring and/or hosting mailing lists with [public-inbox](https://public-inbox.org/). Batteries included.
 
-Supports **mirroring only**, **hosting only**, or **both**.
+Everything runs inside a **single controller container** (`public-inbox-stack`)
+that orchestrates mirroring, indexing, lei imports and the public-inbox serving
+daemons with [tinySupervisor](https://gitlab.com/auyer/tinySupervisor).
+Nginx (Angie) and Anubis ar optional, and live in a separate proxy compose file.
 
-## Complete Architecture
+Supports **mirroring only**, **hosting only**, **ingesting IMAP**, **filtering with lei** or **any combination of the above** :).
+
+## Architecture
 
 ```
 Upstream (public-inbox.example.org, etc.)
         │
-        │  grok-pull (git clone/fetch)
+        │  grok-pull (git clone/fetch), CronJob
         ▼
-   ┌───────────┐
-   │grokmirror │  profiles: mirroring
-   └────┬──────┘
-        │  /data/ (git repos)
-        ▼
-   ┌─────────┐     ┌───────────┐
-   │ indexer │ or  │ grok-pi-  │  profiles: manual / indexed hooks
-   └────┬────┘     └─────┬─────┘
-        │                │
-        ▼                ▼
-   ┌─────────────────────────┐
-   │  public-inbox (httpd,   │  profiles: hosting
-   │  nntpd, watch, extindex)│
-   └────────────┬────────────┘
-                │  port 8080
+┌──────────────────────────────────────────────────────┐
+│ public-inbox-stack  (single container)               │
+│   pistack-controller  (tinySupervisor DAG)           │
+│     ├─ init_folders   (Job)                          │
+│     ├─ grokmirror     (CronJob -> /data/mirror)      │
+│     ├─ index/extindex (run_after, optional)          │
+│     ├─ lei_init/lei_up (Job + CronJob -> /data/lei)  │
+│     └─ public-inbox-httpd/nntpd/imapd/watch/spamd    │
+│         (Service)                                    │
+└───────────────┬──────────────────────────────────────┘
+                │  port 8080 (pi) / 8081 (supervisor)
                 ▼
-        ┌────────────────┐
-        │  Angie/nginx   │  profiles: hosting
-        │  (proxy+SSL)   │
-        └────────────────┘
-                │
-                ▼  http://your-host:8088
+┌────────────────────────────┐
+│  proxy.compose.yaml        │
+│    nginx (Angie) + anubis  │
+└────────────────────────────┘
+        │
+        ▼  http://your-host:8088
 ```
 
 ## Requirements
 
-- **podman** + **podman-compose** >= 1.1.0
+- **podman** + **podman-compose**
   _or_
-- **docker** + **docker-compose** >= 1.28.0 (v2 plugin preferred)
+- **docker** + **docker-compose**
 
-Runtime is auto-detected. See [Container Runtime](#container-runtime) for details.
+Runtime is auto-detected. See [Container Runtime](#container-runtime).
 
 ## Quick Start
 
-This repository relies on git submodules. It must be clone recursively, or run `git submodule update --init --recursive` after clonning.
-
+This repository relies on git submodules. Clone recursively, or run
+`git submodule update --init --recursive` after cloning.
 
 ```bash
 # 1. Create your environment configuration
-cp example.env .env
+cp example.configs.yaml configs.yaml
 
-# 2. Edit .env with your values (see Configuration section)
+# 2. (Optional) add secrets/overrides to .env, e.g. IMAP credentials
+cp .env.example .env
 vim .env
 
-# 3. Generate configuration files from templates
-make setup
-
-# 4. Start mirroring (clones repos from upstream)
-make run-mirroring
-
-# 5. Index the cloned repos
-make run-indexer
-
-# 6. Start hosting (public-inbox + nginx)
-make run-hosting
-
-# 7. (Optional) Import messages from remote externals via lei
-cp example.lei.rules.yaml configs/lei.rules.yaml
-# Edit configs/lei.rules.yaml with your searches, then:
-make run-lei
+# 3. Start everything (setup/rendering happens inside the container)
+make run
+# or, if you use the proxy stack too:
+docker compose -f proxy.compose.yaml up -d
 ```
 
-Visit `http://localhost:8088` (or your configured port) to see your instance.
-
-Or run everything in one command:
-
-```bash
-make run-all
-```
+Visit `http://localhost:8081/health` for the controller health check and
+`http://localhost:8081/state` for the task states.
 
 ## Configuration
 
-### How Configuration Works
+### `configs.yaml`
 
-All configuration flows from a single `.env` file:
+All configuration lives in a single YAML file (`configs.yaml`, gitignored,
+based on `example.configs.yaml`):
 
-1. **Copy** `example.env` to `.env` and edit your values
-2. **Run** `make setup` — this executes `scripts/setup.sh` which:
-   - Reads `.env` and validates required variables
-   - Processes templates in `config_template/` using two mechanisms:
-     - **Conditional blocks**: `{{#VAR}}...{{/VAR}}` — kept if `VAR=true`, removed entirely if `VAR=false`
-     - **Variable substitution**: `{{VAR}}` — replaced with the value from `.env`
-   - Writes rendered configs to `configs/` (git-ignored, regenerated each time)
-3. **Mount** — `compose.yaml` mounts `configs/` into the containers at runtime
+```yaml
+paths:
+  root: /data
+  mirror: /data/mirror
+  imap: /data/imap
+  lei: /data/lei
+  extindex: /data/all
 
+hosting:
+  enabled: true
+  http: true
+  nntp: true
+  imap: false
+  serve_host: lore.domain.tld
+  http_port: 80
+  https_port: 8443
+  nntp_port: 8119
+  imap_port: 143
+
+indexing:
+  level: full            # basic | medium | full
+
+mirroring:
+  enabled: true
+  upstream_host: https://lore.other-domain.tld
+  interval: 7200         # seconds between grok-pull runs
+  indexing: false        # index after each pull
+  extindex: true         # update the cross-inbox index
+
+imap:
+  enabled: false
+  spamcheck_enabled: false
+  inboxes:
+    - id: list.name
+      address: name.list.domain.tld
+      url: imaps://user:pass@imap.server.tld:993/INBOX
+
+lei:
+  enabled: false
+  check_interval: 360    # minutes between lei up --all runs
+  serving_address: localhost
+  output_config: /etc/public-inbox/lei-output.pi.config
+  default_settings:
+    host: https://lore.kernel.org/all
+    threads: true
+    obfuscate: true
+  maildirs:
+    "rust":
+      query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'
 ```
-.env  ──setup.sh──►  config_template/  ──►  configs/
-(user edit)        (source templates)     (rendered output, mounted into containers)
+
+### Secrets from `.env`
+
+Any leaf value in `configs.yaml` can be overridden from `.env` using the
+UPPER_SNAKE_CASE of its dotted path (`.` → `_`, list indices are numeric):
+
+| Config path | Env var |
+|-------------|---------|
+| `imap.inboxes.0.url` | `IMAP_INBOXES_0_URL` |
+| `lei.maildirs.rust.query` | `LEI_MAILDIRS_RUST_QUERY` |
+| `hosting.http` | `HOSTING_HTTP` |
+
+```bash
+# .env (gitignored) - keep credentials here, not in configs.yaml
+IMAP_INBOXES_0_URL=imaps://user:pass@imap.server.tld:993/INBOX
 ```
 
-### Environment Variables
+`.env` values win over `configs.yaml` and are coerced to the type of the value
+they override.
 
-Edit `.env` to configure your instance. All variables are documented below:
+### Data layout
 
-#### Mirroring
+Mirroring, IMAP and lei use separate subfolders of a shared `/data` parent:
 
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `MIRROR_UPSTREAM_HOST` | Grokmirror source URL (where you mirror **from**) | _(required)_ | `https://public-inbox.example.org` |
-| `GROKMIRROR_MODE` | Mirroring mode: `clone` (just git) or `indexed` (git + auto-indexing via hooks) | `clone` | `clone` |
-| `GROKMIRROR_EXTINDEX_ENABLED` | In indexed mode, run cross-inbox extindex after each pull cycle | `true` | `false` |
+| Domain | Path |
+|--------|------|
+| Mirror (grokmirror toplevel) | `/data/mirror` |
+| IMAP watch inboxes | `/data/imap/<inbox-id>` |
+| Lei (base-dir) | `/data/lei` |
+| extindex (`all`, cross-inbox aggregate) | `/data/all` |
 
-#### Hosting
-
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `SERVE_HOST` | Domain where your instance will be accessible | `localhost` | `lists.example.com` |
-| `SERVE_HTTP_PORT` | HTTP port exposed on the host | `80` | `8088` |
-| `SERVE_HTTPS_PORT` | HTTPS port exposed on the host | `443` | `8443` |
-| `SERVE_NNTP_PORT` | NNTP port exposed on the host | `119` | `1119` |
-| `PI_HTTP_ENABLE` | Enable the public-inbox HTTP daemon | `true` | `true` |
-| `PI_NNTP_ENABLE` | Enable the public-inbox NNTP daemon | `false` | `true` |
-| `PI_INDEXING_ENABLE` | Run extindex on container startup | `false` | `true` |
-| `PI_INDEX_LEVEL` | Xapian index level: `basic` (no full-text search), `medium` (no phrase search), `full` (default) | `full` | `medium` |
-| `EXTINDEX_DESCRIPTION` | Description text shown on the extindex main page header | `All Lore` | `My Lore Mirror` |
-| `LEI_ENABLED` | Enable lei-daemon for importing messages from remote externals via saved searches | `false` | `true` |
-| `ANUBIS_ENABLED` | Enable [Anubis](https://github.com/TecharoHQ/anubis) proof-of-work bot protection | `false` | `true` |
-| `ANUBIS_PORT` | Port Anubis binds to (proxies to nginx) | `3000` | `3000` |
-
-#### IMAP Watch (for hosting your own lists)
-
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `PI_IMAP_ENABLED` | Enable IMAP watcher to ingest mail from an IMAP mailbox | `false` | `true` |
-| `PI_IMAP_LIST_NAME` | Inbox name/identifier | `list.name` | `my-list` |
-| `PI_IMAP_LIST_ADDRESS` | Email address for the list | `name@lists.domain.tld` | `discuss@lists.example.com` |
-| `PI_IMAP_AUTH_URL` | IMAP connection string with credentials | _(none)_ | `imaps://user:pass@imap.server.tld:993/INBOX` |
-
-#### Spam Checking
-
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `SPAMCHECK_ENABLED` | Enable SpamAssassin spam checking via `spamc` | `false` | `true` |
-
-#### SSL/TLS
-
-| Variable | Description | Default | Example |
-|----------|-------------|---------|---------|
-| `ACME_ENABLED` | Enable automatic SSL via Let's Encrypt (ACME) | `false` | `true` |
-| `ACME_EMAIL` | Email for ACME certificate registration | `admin@example.com` | `admin@example.com` |
-
-### Understanding MIRROR_UPSTREAM_HOST vs SERVE_HOST
-
-- **`MIRROR_UPSTREAM_HOST`**: The source you're cloning **from**. This is the grokmirror manifest host (e.g., `https://public-inbox.example.org`). Grokmirror uses this to fetch the manifest and git repos.
-- **`SERVE_HOST`**: The domain where **your** instance will be accessible. Used in nginx `server_name`, public-inbox URLs, and the extindex configuration.
-
-### Grokmirror Modes
-
-#### Clone Mode (`GROKMIRROR_MODE=clone`)
-
-Pure git cloning/fetching. No indexing happens during mirroring. You must run indexing separately with `make run-indexer`.
-
-**Use when:** You want full control over when indexing happens, or you're only interested in the git repos.
-
-#### Indexed Mode (`GROKMIRROR_MODE=indexed`)
-
-Clones repos AND automatically indexes them via `grok-pi-indexer` hooks:
-
-- **`post_update_hook`** — runs after each pull to update the index
-- **`post_clone_complete_hook`** — runs after cloning a new repo to initialize it
-- **`post_work_complete_hook`** — runs after all work is done to update the extindex
-
-**Use when:** You want a set-and-forget mirror that stays indexed automatically.
-
-### Conditional Configuration
-
-The template system supports conditional blocks. Setting a variable to `true` in `.env` enables the corresponding feature:
-
-| Variable | What it enables |
-|----------|-----------------|
-| `ACME_ENABLED=true` | HTTPS server block with Let's Encrypt certificates in nginx |
-| `ANUBIS_ENABLED=true` | Anubis PoW bot protection integrated into nginx |
-| `PI_IMAP_ENABLED=true` | IMAP inbox definition in public-inbox config |
-| `SPAMCHECK_ENABLED=true` | SpamAssassin integration via `spamc` in public-inbox-watch |
+> **Migration:** existing installs should move host `./maildirs/*` →
+> `./data/lei/` and `./data/<inbox>` → `./data/mirror/` or `./data/imap/`.
 
 ## Makefile Targets
 
-### Setup
+### Lifecycle
 
 | Target | Description |
 |--------|-------------|
-| `make setup` | Generate configs from templates (reads `.env`, writes to `configs/`) |
-| `make setup-dry-run` | Preview what would be generated without writing files |
-
-### Running Services
-
-| Target | Description |
-|--------|-------------|
-| `make run-hosting` | Start public-inbox + nginx (hosting profile) |
-| `make watch-hosting` | Same as `run-hosting` but in foreground (see logs in terminal) |
-| `make run-mirroring` | Start grokmirror daemon (mirroring profile, detached, pulls every 2 hours) |
-| `make pull-mirror` | Run grokmirror once, pull and exit (mirroring profile) |
-| `make run-mirroring-indexed` | Start grokmirror in indexed mode (auto-indexing enabled) |
-| `make run-indexer` | One-shot manual indexing of cloned repos (manual profile) |
-| `make purge-indexing` | Purge public-inbox indexing data (preserves grokmirror git clones) |
-| `make run-all` | Full pipeline: `setup` → `run-mirroring` → `run-hosting` |
-
-### Utilities
-
-| Target | Description |
-|--------|-------------|
-| `make logs` | Follow logs for all services |
-| `make logs-hosting` | Follow logs for hosting services only |
-| `make logs-mirroring` | Follow logs for mirroring services only |
-| `make obfuscate` | Add `obfuscate = true` to all inbox configs missing it |
+| `make run` | Start the stack (`docker compose up -d`) |
+| `make watch` | Start in the foreground |
 | `make stop` | Stop all services |
-| `make stop-hosting` | Stop hosting services only |
-| `make stop-mirroring` | Stop mirroring services only |
-| `make clean` | Remove generated `build/` directory |
+| `make logs` | Follow logs for all services |
+| `make build` | Build the controller image |
+
+### One-shot operations
+
+| Target | Description |
+|--------|-------------|
+| `make render` | Render grokmirror + public-inbox configs |
+| `make index` | One-shot indexing of cloned repos (+ extindex) |
+| `make purge` | Purge public-inbox indexing data (preserves git clones) |
+| `make obfuscate` | Add `obfuscate = true` to all inbox configs missing it |
 | `make help` | Show all available targets |
+
+## Workflows
+
+### Mirroring + Hosting
+
+```bash
+cp example.configs.yaml configs.yaml
+# set mirroring.enabled: true, upstream_host, hosting.enabled: true
+make run
+```
+
+### Hosting only (no mirroring)
+
+```bash
+# set hosting.enabled: true, mirroring.enabled: false
+# add inbox definitions under imap.inboxes or edit the rendered config
+make run
+```
+
+### Lei: Importing messages via saved searches
+
+1. Set `lei.enabled: true` in `configs.yaml`
+2. Add maildirs (name → query) under `lei.maildirs`
+3. `make run`
+
+On startup the controller creates `lei q` saved searches, initializes the
+public-inbox V2 inboxes, generates `lei-output.pi.config`, then runs
+`lei up --all` every `check_interval` minutes.
+
+**Per-maildir keys:**
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `query` | yes | — | Search terms using [lei-q prefixes](https://public-inbox.org/lei-q.html) |
+| `host` | no | `default_settings.host` | Remote public-inbox URL to search |
+| `threads` | no | `default_settings.threads` | Pull entire threads (`-t` flag) |
+| `obfuscate` | no | `default_settings.obfuscate` | Obfuscate addresses in web UI |
+
+## Services Detail
+
+### Controller (`public-inbox-stack`)
+
+Runs `pistack-controller serve` — a tinySupervisor workflow:
+
+- **`init_folders`** (Job) — creates `/data/{mirror,imap,lei,all}` and the extindex description
+- **`grokmirror`** (CronJob) — `grok-pull` on `mirroring.interval`
+- **`index` / `extindex`** (Jobs, `run_after`) — index cloned repos / update extindex
+- **`lei_init`** (Job) + **`lei_up`** (CronJob) — saved searches + periodic updates
+- **`ensure_inboxes`** (Job) — reinitialize missing inbox dirs from the config
+- **`public-inbox-httpd` / `public-inbox-nntpd` / `public-inbox-imapd`** (Services)
+- **`public-inbox-watch`** (Service) — when IMAP or lei is enabled
+- **`spamd`** (Service) — when `imap.spamcheck_enabled`
+
+Observability: `/health`, `/state`, `/metrics` on port 8081.
+
+### nginx (Angie) + Anubis (`proxy.compose.yaml`)
+
+Angie proxies HTTP/HTTPS to `public-inbox-stack:8080`, streams NNTP to
+`:119` and IMAP to `:143`. When Anubis is enabled, traffic first hits Angie,
+is forwarded to Anubis for a proof-of-work challenge, then proxied back via a
+Unix socket.
+
+**The proxy configs are static files you edit directly** (no templating):
+
+- `proxy/angie.conf` — server_name, ports, upstreams
+- `proxy/botPolicy.yaml` — Anubis bot policy
 
 ## Container Runtime
 
@@ -233,227 +256,38 @@ The project auto-detects your container runtime with this priority:
 Override the detected runtime:
 
 ```bash
-# Use nerdctl
-make run-hosting CONTAINER=nerdctl COMPOSE="nerdctl compose"
-
-# Force docker-compose v1
-make run-hosting COMPOSE=docker-compose
+make run CONTAINER=nerdctl COMPOSE="nerdctl compose"
+make run COMPOSE=docker-compose
 ```
 
-When running with `sudo`, the real user/group ID is preserved so files in `data/` are owned by your user, not root.
-
-## Compose Profiles
-
-| Profile | Services | Description |
-|---------|----------|-------------|
-| `hosting` | `public-inbox`, `nginx` | Serves the web interface, NNTP, and HTTP |
-| `mirroring` | `grokmirror` | Clones and fetches repos from upstream |
-| `manual` | `indexer` | One-shot indexing service (run with `run --rm`) |
-| `anubis` | `anubis` | Proof-of-work bot protection (auto-enabled with `ANUBIS_ENABLED=true`) |
-| `lei` | `lei-daemon` | Search and import messages from remote public-inbox externals |
-
-## Workflows
-
-### Clone Mode (Manual Indexing)
-
-```bash
-make setup
-make run-mirroring        # starts daemon, clones/fetches repos every 2 hours in background
-# or
-make pull-mirror          # one-shot: clones/fetches repos once and exits
-make run-indexer          # initializes and indexes all cloned repos
-make run-hosting          # serves the indexed repos
-```
-
-Re-run `make pull-mirror` followed by `make run-indexer` periodically to fetch new messages and update the index.
-
-### Indexed Mode (Automatic Indexing)
-
-```bash
-make setup
-make run-mirroring-indexed  # clones AND indexes automatically
-make run-hosting            # serves the indexed repos
-```
-
-No manual indexing needed — hooks handle it after every pull.
-
-### Hosting Only (No Mirroring)
-
-If you have your own mailing lists (not mirrored):
-
-1. Add inbox definitions to `config_template/pi-configs/config.template`
-2. Place your git repos in `data/<inbox-name>/git/`
-3. `make setup && make run-hosting`
-
-### Adding Your Own Mailing List via IMAP
-
-1. Set `PI_IMAP_ENABLED=true` in `.env`
-2. Configure `PI_IMAP_LIST_NAME`, `PI_IMAP_LIST_ADDRESS`, and `PI_IMAP_AUTH_URL`
-3. `make setup && make run-hosting`
-
-The `public-inbox-watch` daemon will poll the IMAP mailbox and ingest new messages.
-
-### Lei: Importing Messages via Saved Searches
-
-The `lei-daemon` service runs periodic `lei q` saved searches against remote
-public-inbox archives and imports the results into local Maildir inboxes watched
-by `public-inbox-watch`.
-
-**Setup:**
-
-1. `cp example.lei.rules.yaml configs/lei.rules.yaml`
-2. Edit `configs/lei.rules.yaml` with your searches (see format below)
-3. Set `LEI_ENABLED=true` in `.env`
-4. `make setup && make run-lei && make run-hosting`
-
-**How it works:**
-
-On startup the daemon:
-- Parses `configs/lei.rules.yaml`
-- Creates `lei q` saved searches for each entry under `maildirs`
-- Initializes public-inbox V2 inboxes if needed (`public-inbox-init -V2`)
-- Generates `lei-output.pi.config` (included into the main pi-config via `[include]`)
-- Enters a loop running `lei up --all` every `check_interval` minutes
-
-Maildir outputs are stored under `./maildirs/` (mounted to `/Mail`), watched by
-`public-inbox-watch`, and served via `public-inbox-httpd` like any other inbox.
-
-**Config file format** (`configs/lei.rules.yaml`):
-
-```yaml
-base-dir: "/Mail"           # container path for Maildir outputs
-check_interval: "360"        # minutes between lei up --all runs
-serving_address: "localhost" # used to derive address = NAME@localhost
-output-config: "/etc/public-inbox/lei-output.pi.config"
-
-default_settings: &default_settings
-  host: "https://lore.kernel.org/all"  # lore origin / external inbox URL
-  threads: true             # pull all emails in matching threads (-t)
-  obfuscate: true           # obfuscate email addresses in web UI
-
-maildirs:
-  "my-search":              # name becomes the inbox name and URL path
-    <<: *default_settings   # inherit defaults, override any key below
-    query: "dfn:drivers/gpu/* AND rt:2.weeks.ago.."
-  "my-other-search":
-    host: "https://another.lore.instance/all"
-    query: "f:maintainer@example.com"
-    threads: false          # override default
-```
-
-**Per-maildir keys:**
-
-| Key | Required | Default | Description |
-|-----|----------|---------|-------------|
-| `query` | yes | — | Search terms using [lei-q prefixes](https://public-inbox.org/lei-q.html) |
-| `host` | no | `default_settings.host` | Remote public-inbox URL to search |
-| `threads` | no | `default_settings.threads` | Pull entire threads containing matches (`-t` flag) |
-| `obfuscate` | no | `default_settings.obfuscate` | Obfuscate addresses in web UI |
-
-**Makefile targets:**
-
-```bash
-make run-lei    # start the lei-daemon
-make stop-lei   # stop it
-make logs-lei   # tail its logs
-```
-
-### Pinning Inboxes to the Top
-
-To control the order inboxes appear on the main listing page, add a
-`sortorder` key to the inbox config. Lower values appear first:
-
-```ini
-[publicinbox "my-important-list"]
-	address = "important@lists.example.com"
-	url = https://lists.example.com/my-important-list
-	inboxdir = /data/my-important-list
-	sortorder = 1
-
-[publicinbox "another-list"]
-	address = "another@lists.example.com"
-	url = https://lists.example.com/another-list
-	inboxdir = /data/another-list
-	sortorder = 2
-```
-
-Inboxes without `sortorder` appear below all sorted inboxes, ordered by
-last modification time (newest first).
-
-## Services Detail
-
-### grokmirror
-
-Runs `grok-pull` to clone/fetch git repos from an upstream grokmirror manifest. Configuration is generated from `config_template/grokmirror/clone.conf.template` or `indexed.conf.template` depending on `GROKMIRROR_MODE`.
-
-### indexer
-
-Runs `scripts/index-cloned-repos.sh` to scan `/data/` for cloned v2 inboxes, initialize them with `public-inbox-init -V2`, index with `public-inbox-index`, and update the external index with `public-inbox-extindex --all`.
-
-### public-inbox
-
-Runs `scripts/start-public-inbox.sh` which starts the appropriate daemons based on `.env` flags:
-
-- `public-inbox-httpd` — HTTP/PSGI web interface
-- `public-inbox-nntpd` — NNTP server
-- `public-inbox-watch` — IMAP watcher (when `PI_IMAP_ENABLED=true`)
-- `spamd` — SpamAssassin daemon (when `SPAMCHECK_ENABLED=true`)
-- `public-inbox-extindex` — External indexing (when `PI_INDEXING_ENABLE=true`)
-
-If the data directory is empty on startup, `reinit-from-config.sh` runs automatically to initialize inboxes from the public-inbox config file.
-
-### nginx (Angie)
-
-[Angie](https://angie.software/) — an nginx fork with built-in ACME support. Proxies HTTP/HTTPS to `public-inbox:8080` and streams NNTP (TCP) to `public-inbox:119`.
-
-### Anubis
-
-When `ANUBIS_ENABLED=true`, [Anubis](https://github.com/TecharoHQ/anubis) is integrated with the Nginx proxy to protect against aggressive bots. It requires visitors to solve a proof-of-work challenge before accessing the site. Traffic will reach Nginx first (for TLS termination), then Anubis listens on `ANUBIS_PORT` (should be private), and proxies back to Nginx via a Unix socket.
-
-## SSL/TLS Configuration
-
-To enable automatic SSL with Let's Encrypt:
-
-1. Set `ACME_ENABLED=true` and `ACME_EMAIL=your@email.com` in `.env`
-2. Ensure `SERVE_HOST` is a real domain that resolves to your server
-3. Run `make setup` to regenerate nginx config with ACME blocks
-4. Start hosting: `make run-hosting`
-
-Angie will automatically obtain and renew certificates. The `acme/` directory on the host stores certificate state.
-
-## Email Obfuscation
-
-To hide email addresses from scrapers in the web UI, run:
-
-```bash
-make obfuscate
-```
-
-This adds `obfuscate = true` to every `[publicinbox "..."]` section in `configs/pi-configs/config` that doesn't already have it.
-
-> **Note:** Running `make setup` overwrites `configs/pi-configs/config`. The script creates a backup (`config.bak`) and reminds you to re-run `make obfuscate`.
+When running with `sudo`, the real user/group ID is preserved so files in
+`data/` are owned by your user, not root.
 
 ## Troubleshooting
 
-### Config generation fails
+### Config generation
+
+No separate setup step is needed — `pistack-controller serve` renders the
+grokmirror and public-inbox configs into the mounted `configs/` directories at
+startup. To re-render manually: `make render`.
+
+### Missing configs.yaml
 
 ```
-[ERROR] .env not found
+[ERROR] Config file not found: configs.yaml
 ```
 
-Run `cp example.env .env` first, then edit `.env` with your values.
+Run `cp example.configs.yaml configs.yaml` and edit it.
 
 ### No v2 inboxes found
 
-The indexer scans `/data/` for directories with `git/N.git` structure. If grokmirror hasn't finished cloning yet, run `make run-mirroring` first and wait for it to complete.
-
-### Indexing is slow or hangs
-
-Large inboxes (10,000+ messages) may trigger a hint about `--split-shards`. This flag is **not recommended** in containerized environments — it requires 2-3x temporary disk space and is prone to Xapian database corruption on interruption. The script does not use it by default.
+The indexer scans `/data/mirror` for directories with `git/N.git` structure. If
+grokmirror hasn't finished cloning yet, wait for the next pull cycle or run
+`make index` manually.
 
 ### Container permission errors
 
-When using `sudo make`, the real user ID should be preserved. If you see permission errors in `data/`, check ownership:
+Check ownership of `data/`:
 
 ```bash
 ls -la data/
@@ -461,38 +295,29 @@ ls -la data/
 
 Fix with: `sudo chown -R $(id -u):$(id -g) data/`
 
-### Reinitializing from scratch
-
-If your data directory is corrupted or you want to start fresh:
-
-```bash
-make stop
-rm -rf data/*
-make setup          # regenerates configs
-make run-hosting    # auto-runs reinit-from-config.sh on empty data dir
-make run-indexer    # re-indexes all repos
-```
-
 ### Purging Indexing Data
 
-To remove public-inbox indexing artifacts (Xapian, msgmap, over.sqlite3, all.git, external index) while preserving grokmirror git clones:
-
 ```bash
-make purge-indexing
-# or with dry-run to preview:
-./scripts/purge-indexing.sh -d /data -n
+make purge
 ```
 
-Use this when you want to re-index from scratch without re-cloning all repos from upstream. After purging, run `make run-indexer` to rebuild the indexes.
+Removes public-inbox indexing artifacts (Xapian, msgmap, over.sqlite3, all.git,
+external index) while preserving grokmirror git clones. After purging, run
+`make index` to rebuild.
 
-**Note:** This also removes the external index (`/data/all/`) which may be corrupted if you see `dir_end invalid` errors during `public-inbox-extindex`.
-
-### Viewing generated configs
-
-Before applying, preview what `make setup` will generate:
+### Email Obfuscation
 
 ```bash
-make setup-dry-run
+make obfuscate
 ```
 
-Or inspect the templates directly in `config_template/` to understand what each variable controls.
+Adds `obfuscate = true` to every `[publicinbox "..."]` section in the rendered
+public-inbox config that doesn't already have it.
+
+## Developing the controller
+
+```bash
+cd pistack-controller
+uv venv && uv pip install .
+.venv/bin/pistack-controller --help
+```

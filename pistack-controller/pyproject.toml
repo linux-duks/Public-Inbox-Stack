@@ -1,7 +1,7 @@
 [project]
 name = "pistack-controller"
 version = "0.1.0"
-description = "Controll the Public-Inbox-Stack"
+description = "Control the Public-Inbox-Stack"
 authors = [
     { name = "Rafael Passos", email = "rafael@rcpassos.me" }
 ]
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-pistack-controller = "pistack_controller:main"
+pistack-controller = "pistack_controller.main:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]

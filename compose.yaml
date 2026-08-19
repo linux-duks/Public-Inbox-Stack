@@ -15,91 +15,28 @@ services:
       args:
         USER_ID: '${UID:-1000}'
         GROUP_ID: '${GID:-1000}'
-    env_file:
-      - .env
     user: "${UID:-1000}:${GID:-1000}"
     environment:
       - HOME=/tmp
-      - DEBUG=false
       - PI_CONFIG=/etc/public-inbox/config
-      - PI_DATA_DIR=/data
-      - IMAP_FOLDER=INBOX
-      - IMAP_SSL=true
-      - IMAP_INTERVAL=3600
-      - SA_MAX_MAIL_SIZE=4096000
+      - CONFIG_PATH=/configs.yaml
+      # - ENV_PATH=/.env
+      - TINYSUPERVISOR_HTTP_PORT=${TINYSUPERVISOR_HTTP_PORT:-8081}
+      - TINYSUPERVISOR_VERBOSITY=${TINYSUPERVISOR_VERBOSITY:-info}
       - EXTINDEX_DESCRIPTION=${EXTINDEX_DESCRIPTION:-All Lore}
     volumes:
       - ./data/:/data/:z
-      - ./maildirs/:/Mail:z
-      - ./scripts:/scripts:z
-      - ./public-inbox/contrib/css/:/static/css/:ro
+      - ./configs.yaml:/configs.yaml:ro
+      # - ./.env:/.env:ro
+      - ./configs/grokmirror/:/config/:z
       - ./configs/pi-configs/:/etc/public-inbox/:z
+      - ./public-inbox/contrib/css/:/static/css/:ro
       - ./logs/:/var/log/public-inbox/:z
-    command: >
-      uv python main.py
+    command: pistack-controller serve
+    ports:
+      - "${TINYSUPERVISOR_HTTP_PORT:-8081}:8081"
     networks:
       - lore
-
-  # grokmirror:
-  #   userns_mode: keep-id
-  #   build:
-  #     context: .
-  #     dockerfile: ./Containerfile
-  #   environment:
-  #     - HOME=/tmp
-  #     - PI_DATA_DIR=/data
-  #     - GROKMIRROR_MODE=${GROKMIRROR_MODE:-clone}
-  #     - GROKMIRROR_EXTINDEX_ENABLED=${GROKMIRROR_EXTINDEX_ENABLED:-true}
-  #   user: "${UID:-1000}:${GID:-1000}"
-  #   volumes:
-  #     - ./configs/grokmirror/${GROKMIRROR_MODE:-clone}.conf:/config/grokmirror.conf:z
-  #     - ./configs/pi-configs/:/etc/public-inbox/:z
-  #     - ./data/:/data:z
-  #     - ./scripts:/scripts:z
-  #   # defaults to running in daemon mode. "pull-mirror" option pulls once
-  #   command: grok-pull -v --continuous -c /config/grokmirror.conf
-  #   stop_grace_period: 90s
-  #   restart: on-failure
-  #   networks:
-  #     - lore
-  #
-  # indexer:
-  #   userns_mode: keep-id
-  #   build:
-  #     context: .
-  #     dockerfile: ./Containerfile
-  #   environment:
-  #     - HOME=/tmp
-  #     - PI_DATA_DIR=/data
-  #     - PI_CONFIG=/etc/public-inbox/config
-  #   env_file:
-  #     - .env
-  #   user: "${UID:-1000}:${GID:-1000}"
-  #   volumes:
-  #     - ./configs/pi-configs/:/etc/public-inbox/:z
-  #     - ./data/:/data:z
-  #     - ./scripts:/scripts:z
-  #   command: bash /scripts/index-cloned-repos.sh -o ${MIRROR_UPSTREAM_HOST}
-  #   networks:
-  #     - lore
-  #
-  # lei-daemon:
-  #   userns_mode: keep-id
-  #   build:
-  #     context: .
-  #     dockerfile: ./Containerfile
-  #   user: "${UID:-1000}:${GID:-1000}"
-  #   environment:
-  #     - HOME=/tmp
-  #   volumes:
-  #     - ./configs/lei.rules.yaml:/config/lei.rules.yaml:z
-  #     - ./maildirs/:/Mail:z
-  #     - ./configs/pi-configs/:/etc/public-inbox/:z
-  #     - ./scripts:/scripts:z
-  #   command: bash /scripts/lei-daemon.sh /config/lei.rules.yaml
-  #   restart: unless-stopped
-  #   networks:
-  #     - lore
 
 volumes:
   socket_dir:

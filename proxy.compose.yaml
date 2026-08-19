@@ -17,12 +17,12 @@ services:
       - "${SERVE_NNTP_PORT:-119}:119"
       - "${SERVE_IMAP_PORT:-143}:143"
     volumes:
-      - ./configs/nginx/angie.conf:/etc/angie/angie.conf:z
+      - ./proxy/angie.conf:/etc/angie/angie.conf:z
       - ./acme:/var/lib/angie/acme:z
       - ./public-inbox/contrib/css/:/var/www/static/css/:ro
       - socket_dir:/run/nginx
     depends_on:
-      - public-inbox
+      - public-inbox-stack
     restart: unless-stopped
     networks:
       - lore
@@ -30,7 +30,7 @@ services:
   anubis:
     image: ghcr.io/techarohq/anubis:latest
     environment:
-      BIND: ":${ANUBIS_PORT}"
+      BIND: ":${ANUBIS_PORT:-18888}"
       DIFFICULTY: "5"
       SERVE_ROBOTS_TXT: "true"
       TARGET: "unix:/run/nginx/nginx.sock"
@@ -44,10 +44,10 @@ services:
       retries: 5
       start_period: 500ms
     ports:
-      - ${ANUBIS_PORT}:${ANUBIS_PORT}
+      - "${ANUBIS_PORT:-18888}:18888"
     volumes:
       - socket_dir:/run/nginx
-      - "./configs/anubis/:/data/cfg/:ro"
+      - ./proxy/botPolicy.yaml:/data/cfg/botPolicy.yaml:ro
     depends_on:
       - nginx
     networks:

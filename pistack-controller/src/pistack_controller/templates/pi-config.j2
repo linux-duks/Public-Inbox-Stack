@@ -1,0 +1,34 @@
+[publicinbox]
+	grokmanifest = all
+	wwwListing = all
+	css = /dev/null title=default
+	css = /static/css/216dark.css \
+		title=216dark \
+		media='screen,(prefers-color-scheme:dark)'
+	css = /static/css/216light.css \
+		title=216light \
+		media='screen,print,(prefers-color-scheme:light)'
+{% if lei.enabled %}
+[include]
+	path = {{ lei.output_config }}
+{% endif %}
+{% if mirroring.extindex %}
+[extindex "all"]
+	topdir = {{ paths.extindex }}
+	url = https://{{ hosting.serve_host }}
+{% endif %}
+{% if imap.enabled %}
+{% for inbox in imap.inboxes %}
+[publicinbox "{{ inbox.id }}"]
+	address = "{{ inbox.address }}"
+	obfuscate = true
+	url = https://{{ hosting.serve_host }}/{{ inbox.id }}
+	inboxdir = {{ paths.imap }}/{{ inbox.id }}
+	watch = "{{ inbox.url }}"
+	sortorder = {{ loop.index }}
+{% endfor %}
+{% endif %}
+{% if imap.spamcheck_enabled %}
+[publicinboxwatch]
+	spamcheck = spamc
+{% endif %}

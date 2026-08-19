@@ -1,79 +1,38 @@
 # Include shared container runtime detection
 include ./containers.mk
 
-# Hosting profile (anubis is included when ANUBIS_ENABLED=true)
-# Reads one profile per line from configs/hosting-profile.txt, renders as --profile flags
-HOSTING_PROFILE = $(shell cat configs/hosting-profile.txt 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//;/^$$/d;s/^/--profile /' | tr '\n' ' ' || echo '--profile hosting')
+.PHONY: run watch stop logs build index purge obfuscate render help
 
-.PHONY: setup setup-dry-run run-hosting watch-hosting run-mirroring pull-mirror run-mirroring-indexed run-indexer purge-indexing obfuscate clean logs help
+##@ Lifecycle
 
-##@ Setup
+run: ## Start the stack (controller container)
+	$(COMPOSE) up -d
 
-setup: ## Generate configuration files from templates
-	bash scripts/setup.sh
-
-setup-dry-run: ## Show what would be generated without writing files
-	bash scripts/setup.sh --dry-run
-
-##@ Running services
-
-run-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) $(HOSTING_PROFILE) up -d
-
-watch-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) $(HOSTING_PROFILE) up 
-
-run-mirroring: ## Start grokmirror daemon (mirroring profile, detached)
-	$(COMPOSE) --profile mirroring up -d
-
-pull-mirror: ## Run grokmirror once, pull and exit (mirroring profile)
-	$(COMPOSE) --profile mirroring run --rm grokmirror grok-pull -v -c /config/grokmirror.conf
-
-run-mirroring-indexed: ## Start grokmirror with indexing hooks
-	GROKMIRROR_MODE=indexed $(COMPOSE) --profile mirroring up -d
-
-run-indexer: ## Run manual indexing of cloned repos
-	$(COMPOSE) --profile manual run --rm indexer
-
-purge-indexing: ## Purge public-inbox indexing data (preserves grokmirror clones)
-	$(COMPOSE) --profile manual run --rm indexer bash /scripts/purge-indexing.sh -d /data
-
-run-lei: ## Start lei-daemon (lei profile)
-	$(COMPOSE) --profile lei up -d lei-daemon
-
-run-all: setup run-mirroring run-hosting ## Setup, mirror, and host everything
-
-##@ Utilities
-
-obfuscate: ## Add obfuscate = true to all publicinbox sections missing it
-	bash scripts/obfuscate.sh
-
-logs: ## Show logs for all services
-	$(COMPOSE) logs -f
-
-logs-hosting: ## Show logs for hosting services
-	$(COMPOSE) $(HOSTING_PROFILE) logs -f
-
-logs-mirroring: ## Show logs for mirroring services
-	$(COMPOSE) --profile mirroring logs -f
-
-logs-lei: ## Follow lei-daemon logs
-	$(COMPOSE) --profile lei logs -f
+watch: ## Start the stack in the foreground
+	$(COMPOSE) up
 
 stop: ## Stop all services
 	$(COMPOSE) down
 
-stop-hosting: ## Stop hosting services
-	$(COMPOSE) $(HOSTING_PROFILE) down
+logs: ## Show logs for all services
+	$(COMPOSE) logs -f
 
-stop-mirroring: ## Stop mirroring services
-	$(COMPOSE) --profile mirroring down
+build: ## Build the controller image
+	$(COMPOSE) build
 
-stop-lei: ## Stop lei-daemon
-	$(COMPOSE) --profile lei down
+##@ One-shot operations (run inside the controller container)
 
-clean: ## Remove generated build files
-	rm -rf build/
+render: ## Render grokmirror + public-inbox configs
+	$(COMPOSE) run --rm public-inbox-stack pistack-controller render
+
+index: ## Index cloned repos (+ extindex)
+	$(COMPOSE) run --rm public-inbox-stack pistack-controller index
+
+purge: ## Purge indexing data (preserves grokmirror clones)
+	$(COMPOSE) run --rm public-inbox-stack pistack-controller purge
+
+obfuscate: ## Add obfuscate = true to all publicinbox sections missing it
+	$(COMPOSE) run --rm public-inbox-stack pistack-controller obfuscate
 
 ##@ Help
 

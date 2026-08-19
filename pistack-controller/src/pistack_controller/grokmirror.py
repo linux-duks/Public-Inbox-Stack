@@ -1,17 +1,20 @@
-# run the GrokMirror tool
-# use jinja2 to template the config files
-# run grokmirror in one-shot mode, and use tinySupervisor CronJob for scheduling
-#
+"""Grokmirror scheduling task.
 
-from typing import Any
+Runs ``grok-pull`` as a one-shot job on an interval; tinySupervisor handles
+the scheduling (replacing grokmirror's own ``--continuous`` daemon mode).
+"""
+
 from tinysupervisor import CronJob
 
+from pistack_controller.config import Config
+from pistack_controller.render import GROKMIRROR_CONF
 
-def grokmirror_cronjob(
-    config: dict[str, Any] | None = None,
-):
+
+def grokmirror_cronjob(config: Config) -> CronJob:
     return CronJob(
-        name="grokmirror_job",
-        interval="TODO get from configs",
-        executable="grokmirror ",
+        name="grokmirror",
+        interval=float(config.mirroring.interval),
+        command=f"grok-pull -v -c {GROKMIRROR_CONF}",
+        depends=["init_folders"],
+        dependency_mode="completed",
     )
