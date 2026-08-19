@@ -32,7 +32,7 @@ services:
       - ./configs/pi-configs/:/etc/public-inbox/:z
       - ./public-inbox/contrib/css/:/static/css/:ro
       - ./logs/:/var/log/public-inbox/:z
-    command: pistack-controller serve
+    command: /pistack-controller/.venv/bin/pistack-controller serve
     ports:
       - "${TINYSUPERVISOR_HTTP_PORT:-8081}:8081"
     networks:

@@ -1,6 +1,9 @@
 # Include shared container runtime detection
 include ./containers.mk
 
+# Absolute path to the controller console script inside the container
+PI_CONTROLLER = /pistack-controller/.venv/bin/pistack-controller
+
 .PHONY: run watch stop logs build rebuild index purge obfuscate render help
 
 ##@ Lifecycle
@@ -26,16 +29,16 @@ rebuild: ## Rebuild the controller image from scratch (no cache) and restart
 ##@ One-shot operations (run inside the controller container)
 
 render: ## Render grokmirror + public-inbox configs
-	$(COMPOSE) run --rm public-inbox-stack pistack-controller render
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) render
 
 index: ## Index cloned repos (+ extindex)
-	$(COMPOSE) run --rm public-inbox-stack pistack-controller index
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) index
 
 purge: ## Purge indexing data (preserves grokmirror clones)
-	$(COMPOSE) run --rm public-inbox-stack pistack-controller purge
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) purge
 
 obfuscate: ## Add obfuscate = true to all publicinbox sections missing it
-	$(COMPOSE) run --rm public-inbox-stack pistack-controller obfuscate
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) obfuscate
 
 ##@ Help
 
