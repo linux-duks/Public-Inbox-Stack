@@ -15,7 +15,7 @@
 {% if mirroring.extindex %}
 [extindex "all"]
 	topdir = {{ paths.extindex }}
-	url = https://{{ hosting.serve_host }}
+	url = https://{{ hosting.serve_host }}/all
 {% endif %}
 {% if imap.spamcheck_enabled %}
 {% for inbox in imap.inboxes %}
