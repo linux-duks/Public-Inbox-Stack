@@ -220,7 +220,7 @@ wheels = [
 [[package]]
 name = "tinysupervisor"
 version = "0.1.0"
-source = { git = "https://github.com/auyer/tinySupervisor#0888100a63d6c0699cf3496b223d57ac02fa326b" }
+source = { git = "https://github.com/auyer/tinySupervisor#a0037c4174601aef49ffdeaadf8a6bbc14820d69" }
 dependencies = [
     { name = "networkx" },
     { name = "prometheus-client" },
