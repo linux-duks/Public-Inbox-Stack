@@ -39,7 +39,7 @@ services:
       - "8080:8080"
       - "8119:8119"
       - "8143:8143"
-      - "${TINYSUPERVISOR_HTTP_PORT:-8081}:8081"
+      - "${TINYSUPERVISOR_HTTP_PORT:-8081}:${TINYSUPERVISOR_HTTP_PORT:-8081}"
     networks:
       - lore
 
