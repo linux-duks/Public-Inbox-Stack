@@ -60,7 +60,8 @@ vim .env
 # 3. Start everything (setup/rendering happens inside the container)
 make run
 # or, if you use the proxy stack too:
-docker compose -f proxy.compose.yaml up -d
+cp proxy/proxy.config.example proxy/proxy.config
+make run-with-proxy
 ```
 
 Visit `http://localhost:8081/health` for the controller health check and
@@ -173,6 +174,7 @@ Mirroring, IMAP and lei use separate subfolders of a shared `/data` parent:
 | Target | Description |
 |--------|-------------|
 | `make render` | Render grokmirror + public-inbox configs |
+| `make proxy-config` | Render `proxy/angie.conf` from the Jinja2 template + `proxy.config` |
 | `make index` | One-shot indexing of cloned repos (+ extindex) |
 | `make purge` | Purge public-inbox indexing data (preserves git clones) |
 | `make obfuscate` | Add `obfuscate = true` to all inbox configs missing it |
@@ -240,9 +242,19 @@ Angie proxies HTTP/HTTPS to `public-inbox-stack:8080`, streams NNTP to
 is forwarded to Anubis for a proof-of-work challenge, then proxied back via a
 Unix socket.
 
-**The proxy configs are static files you edit directly** (no templating):
+**`proxy/angie.conf` is generated** from `proxy/angie.conf.j2` (Jinja2) using
+`proxy/proxy.config` (KEY=VALUE, gitignored, see `proxy/proxy.config.example`):
 
-- `proxy/angie.conf` — server_name, ports, upstreams
+- `make proxy-config` (or `make proxy-config-dry-run` to preview) renders the config
+- `make run-with-proxy` renders it and starts the stack with the proxy compose file
+- The same `proxy.config` feeds `${...}` external-port interpolation in
+  `proxy.compose.yaml` via `--env-file` (`HTTP_PORT`, `HTTPS_PORT`, `NNTP_PORT`,
+  `IMAP_PORT`, `ANUBIS_PORT`), so you can publish e.g. HTTP on a non-80 host port
+- `HTTP_ENABLED`/`HTTPS_ENABLED`/`NNTP_ENABLED`/`IMAP_ENABLED` toggle whether each
+  protocol is served by Angie
+
+Edit directly instead:
+
 - `proxy/botPolicy.yaml` — Anubis bot policy
 
 ## Container Runtime

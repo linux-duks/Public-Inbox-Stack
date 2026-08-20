@@ -1,0 +1,210 @@
+# Angie (nginx) configuration - GENERATED from angie.conf.j2
+# Do not edit directly. Adjust values in proxy/proxy.config and run:
+#   make proxy-config
+#
+# Streams NNTP and IMAP to the controller container (public-inbox-stack).
+# The HTTP upstream also targets public-inbox-stack. Internal ports below
+# (8080/8119/8143) must match hosting.*_port in configs.yaml.
+# Anubis (optional) sits between Angie and public-inbox; traffic that passes
+# the proof-of-work challenge reaches the unix socket below.
+
+user  angie;
+worker_processes  16;
+
+error_log  /var/log/angie/error.log notice;
+pid        /var/run/angie.pid;
+
+events {
+    worker_connections 120;
+}
+
+{% if nntp_enabled or imap_enabled %}
+stream {
+{% if nntp_enabled %}
+    upstream public_inbox_nntp {
+        server public-inbox-stack:8119;
+    }
+
+    # TCP stream proxy for NNTP (port 119)
+    server {
+        listen 119;
+        proxy_connect_timeout 10s;
+        proxy_timeout 1h;
+        proxy_pass public_inbox_nntp;
+    }
+{% endif %}
+
+{% if imap_enabled %}
+    upstream public_inbox_imapd {
+        server public-inbox-stack:8143;
+    }
+
+    # TCP stream proxy for IMAP (port 143)
+    server {
+        listen 143;
+        proxy_connect_timeout 10s;
+        proxy_timeout 1h;
+        proxy_pass public_inbox_imapd;
+    }
+{% endif %}
+
+{% if acme_enabled and imap_enabled %}
+    server {
+        listen 993 ssl;
+        proxy_connect_timeout 10s;
+        proxy_timeout 1h;
+        proxy_pass public_inbox_imapd;
+
+        # SSL certificates from ACME
+        ssl_certificate $acme_cert_letsencrypt;
+        ssl_certificate_key $acme_cert_key_letsencrypt;
+
+        # SSL configuration
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+
+        # Link ACME client for auto-renewal
+        acme letsencrypt;
+    }
+{% endif %}
+}
+{% endif %}
+
+http {
+    proxy_cache_path /tmp/angie_cache levels=1:2 keys_zone=local_cache:30m max_size=510m inactive=10d;
+    proxy_temp_path /tmp/angie_proxy 1 2;
+
+{% if acme_enabled %}
+    resolver 1.1.1.1 8.8.8.8;
+    acme_client_path /var/lib/angie/acme;
+
+    acme_client letsencrypt https://acme-v02.api.letsencrypt.org/directory
+                email={{ acme_email }};
+{% endif %}
+
+{% if http_enabled or anubis_enabled %}
+    # Upstream for public-inbox HTTP service
+    upstream public_inbox {
+        server public-inbox-stack:8080;
+    }
+{% endif %}
+
+{% if http_enabled %}
+    # HTTP server - ACME challenge and redirect to HTTPS
+    server {
+        listen 80;
+        server_name {{ serve_host }} localhost;
+
+        server_tokens off;
+
+{% if acme_enabled %}
+        # ACME HTTP challenge handling
+        acme letsencrypt;
+{% endif %}
+
+        # Correctly load mime types
+        include /etc/angie/mime.types;
+
+{% if anubis_enabled %}
+        location / {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Http-Version $server_protocol;
+            proxy_pass http://anubis:{{ anubis_port }};
+        }
+{% else %}
+        # Static file serving for theme.css
+        location /static/css {
+            alias /var/www/static/css;
+            default_type text/css;
+            try_files $uri /index.html =404;
+        }
+        # Proxy all other requests to public-inbox
+        location / {
+            proxy_pass http://public_inbox;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+{% endif %}
+    }
+{% endif %}
+
+{% if acme_enabled and https_enabled %}
+    # HTTPS server - Main application
+    server {
+        listen 443 ssl;
+        server_name {{ serve_host }};
+
+        server_tokens off;
+
+        # SSL certificates from ACME
+        ssl_certificate $acme_cert_letsencrypt;
+        ssl_certificate_key $acme_cert_key_letsencrypt;
+
+        # SSL configuration
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+        ssl_prefer_server_ciphers on;
+
+        # Link ACME client for auto-renewal
+        acme letsencrypt;
+
+        # Correctly load mime types
+        include /etc/angie/mime.types;
+
+{% if anubis_enabled %}
+        location / {
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Http-Version $server_protocol;
+            proxy_pass http://anubis:{{ anubis_port }};
+        }
+{% else %}
+        # Static file serving for theme.css
+        location = /static/theme.css {
+            alias /var/www/static/theme.css;
+            default_type text/css;
+        }
+
+        # Proxy all other requests to public-inbox
+        location / {
+            proxy_pass http://public_inbox;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+{% endif %}
+    }
+{% endif %}
+
+{% if anubis_enabled %}
+    server {
+        listen unix:/run/nginx/nginx.sock;
+
+        server_name {{ serve_host }};
+
+        # Correctly load mime types
+        include /etc/angie/mime.types;
+
+        # Static file serving for theme.css
+        location = /static/theme.css {
+            alias /var/www/static/theme.css;
+            default_type text/css;
+        }
+
+        # Proxy all other requests to public-inbox
+        location / {
+            proxy_pass http://public_inbox;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }
+{% endif %}
+
+}

@@ -9,7 +9,7 @@ DEV_COMPOSE = $(COMPOSE) -f compose.dev.yaml
 DEV_CONTROLLER = uv run --project /pistack-controller pistack-controller
 PROXY_COMPOSE = -f proxy.compose.yaml
 
-.PHONY: run watch stop logs build rebuild dev dev-watch index purge obfuscate render help
+.PHONY: run watch stop logs build rebuild dev dev-watch index purge obfuscate render proxy-config proxy-config-dry-run help
 
 ##@ Lifecycle
 
@@ -39,8 +39,16 @@ dev-watch: ## Start the stack in dev mode in the foreground
 	$(DEV_COMPOSE) up
 
 ## run with the aditional proxy compose
-run-with-proxy: run ## Start the stack (controller container)
-	$(COMPOSE) -f compose.yaml $(PROXY_COMPOSE) up -d
+run-with-proxy: proxy-config ## Start the stack with the proxy compose file
+	$(COMPOSE) --env-file proxy/proxy.config -f compose.yaml $(PROXY_COMPOSE) up -d
+
+##@ Proxy
+
+proxy-config: ## Render proxy/angie.conf from proxy/angie.conf.j2 + proxy.config
+	uv run --project pistack-controller python proxy/render_proxy.py
+
+proxy-config-dry-run: ## Print the rendered angie.conf without writing it
+	uv run --project pistack-controller python proxy/render_proxy.py --dry-run
 
 ##@ One-shot operations (run inside the controller container)
 
