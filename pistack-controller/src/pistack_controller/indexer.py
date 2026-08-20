@@ -12,7 +12,7 @@ import subprocess
 import time
 import urllib.request
 
-from pistack_controller.config import Config
+from pistack_controller.config import Config, PI_CONFIG
 
 GROKMIRROR_UA = "grokmirror/2.1.0"
 HTTP_MINIMUM_INTERVAL = 15.0
@@ -20,17 +20,15 @@ HTTP_MINIMUM_INTERVAL = 15.0
 _last_http: list[float] = [0.0]
 
 
-def pi_config_path() -> str:
-    return os.environ.get("PI_CONFIG", "/etc/public-inbox/config")
-
-
 def pi_env() -> dict[str, str]:
     env = dict(os.environ)
-    env["PI_CONFIG"] = pi_config_path()
+    env["PI_CONFIG"] = PI_CONFIG
     return env
 
 
-def run_cmd(cmd: list[str], env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+def run_cmd(
+    cmd: list[str], env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, env=env or os.environ, capture_output=True, text=True)
 
 
@@ -90,14 +88,20 @@ def extract_addresses_from_git(inbox_dir: str) -> str:
     if not os.path.isdir(git_dir):
         return ""
     repos = sorted(
-        (os.path.join(git_dir, name) for name in os.listdir(git_dir) if name.endswith(".git")),
+        (
+            os.path.join(git_dir, name)
+            for name in os.listdir(git_dir)
+            if name.endswith(".git")
+        ),
         reverse=True,
     )
     for repo in repos:
         result = run_cmd(["git", "-C", repo, "show", "refs/meta/origins:i"])
         if result.returncode != 0:
             continue
-        addresses = re.findall(r"^\s*address\s*=\s*(.+?)\s*$", result.stdout, re.MULTILINE)
+        addresses = re.findall(
+            r"^\s*address\s*=\s*(.+?)\s*$", result.stdout, re.MULTILINE
+        )
         if addresses:
             return " ".join(addresses)
     return ""
@@ -131,14 +135,16 @@ def fetch_remote_config(inbox_name: str, origin: str) -> tuple[str, str]:
 def init_inbox(config: Config, inbox_name: str, origin: str) -> int:
     """Initialize/index a single inbox. Returns 0=ok, 1=failed, 2=skipped."""
     inbox_dir = os.path.join(config.paths.mirror, inbox_name)
-    pi_config = pi_config_path()
+    pi_config = PI_CONFIG
     env = pi_env()
 
     if git_config_get(pi_config, f"publicinbox.{inbox_name}.inboxdir") is not None:
         if not needs_init(inbox_dir):
             print(f"[indexer] Skipping '{inbox_name}' - already initialized")
             return 2
-        print(f"[indexer] Reinitializing '{inbox_name}' - in config but lacks v2 structure")
+        print(
+            f"[indexer] Reinitializing '{inbox_name}' - in config but lacks v2 structure"
+        )
         url = git_config_get(pi_config, f"publicinbox.{inbox_name}.url") or inbox_name
         address = (
             git_config_get(pi_config, f"publicinbox.{inbox_name}.address")

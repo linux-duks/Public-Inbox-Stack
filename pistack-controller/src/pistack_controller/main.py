@@ -15,7 +15,7 @@ import sys
 from tinysupervisor import Job, RecurrentJob, init_supervisor
 
 from pistack_controller import render
-from pistack_controller.config import Config, ConfigError, load_config
+from pistack_controller.config import Config, ConfigError, load_config, PI_CONFIG
 from pistack_controller.grokmirror import grokmirror_cronjob
 from pistack_controller.indexer import index_cloned_repos, run_extindex
 from pistack_controller.lei import lei_init_job, lei_up_cronjob
@@ -112,7 +112,7 @@ def cmd_purge(config: Config) -> int:
 
 
 def cmd_obfuscate(config: Config) -> int:
-    return obfuscate_config(os.environ.get("PI_CONFIG", "/etc/public-inbox/config"))
+    return obfuscate_config(PI_CONFIG)
 
 
 _COMMANDS = {

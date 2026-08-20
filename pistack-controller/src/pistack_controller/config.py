@@ -13,10 +13,14 @@ type of the value they override.
 
 import os
 from dataclasses import dataclass, field
-from pistack_controller.render import PI_CONFIG
 from typing import Any, Iterator
 
 import yaml
+
+GROKMIRROR_CONF = os.environ.get(
+    "GROKMIRROR_CONF", "/configs/grokmirror/grokmirror.conf"
+)
+PI_CONFIG = os.environ.get("PI_CONFIG", "/configs/pi-config/config")
 
 
 class ConfigError(Exception):

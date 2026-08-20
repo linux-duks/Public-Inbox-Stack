@@ -10,7 +10,7 @@ import subprocess
 
 from tinysupervisor import CronJob, Job
 
-from pistack_controller.config import Config
+from pistack_controller.config import Config, PI_CONFIG
 
 
 def lei_init(config: Config) -> int:
@@ -19,7 +19,7 @@ def lei_init(config: Config) -> int:
     output_config = config.lei.output_config
     os.makedirs(base_dir, exist_ok=True)
     env = dict(os.environ)
-    env["PI_CONFIG"] = os.environ.get("PI_CONFIG", "/etc/public-inbox/config")
+    env["PI_CONFIG"] = PI_CONFIG
 
     for maildir in config.lei.maildirs:
         if not maildir.host:

@@ -17,14 +17,10 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from pistack_controller.config import Config
+from pistack_controller.config import Config, PI_CONFIG, GROKMIRROR_CONF
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-GROKMIRROR_CONF = os.environ.get(
-    "GROKMIRROR_CONF", "/configs/grokmirror/grokmirror.conf"
-)
-PI_CONFIG = os.environ.get("PI_CONFIG", "/configs/pi-config/config")
 
 _SECTION_RE = re.compile(r"^\[[^\]\n]*\]\s*$")
 

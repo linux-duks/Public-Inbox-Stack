@@ -8,12 +8,19 @@ import os
 import re
 import subprocess
 
-from pistack_controller.config import Config
+from pistack_controller.config import Config, PI_CONFIG
 
 
 def get_inbox_names(pi_config: str) -> list[str]:
     result = subprocess.run(
-        ["git", "config", "-f", pi_config, "--get-regexp", r"^publicinbox\..*\.inboxdir$"],
+        [
+            "git",
+            "config",
+            "-f",
+            pi_config,
+            "--get-regexp",
+            r"^publicinbox\..*\.inboxdir$",
+        ],
         capture_output=True,
         text=True,
     )
@@ -36,13 +43,15 @@ def git_config_get(pi_config: str, key: str) -> str | None:
 
 def git_config_get_all(pi_config: str, key: str) -> list[str]:
     result = subprocess.run(
-        ["git", "config", "-f", pi_config, "--get-all", key], capture_output=True, text=True
+        ["git", "config", "-f", pi_config, "--get-all", key],
+        capture_output=True,
+        text=True,
     )
     return result.stdout.split() if result.returncode == 0 else []
 
 
 def ensure_inboxes(config: Config) -> int:
-    pi_config = os.environ.get("PI_CONFIG", "/etc/public-inbox/config")
+    pi_config = PI_CONFIG
     if not os.path.isfile(pi_config):
         print("[reinit] No public-inbox config found, skipping")
         return 0
@@ -59,7 +68,10 @@ def ensure_inboxes(config: Config) -> int:
             continue
 
         print(f"[reinit] Initializing inbox '{name}' at {inbox_dir}")
-        url = git_config_get(pi_config, f"publicinbox.{name}.url") or f"https://localhost/{name}"
+        url = (
+            git_config_get(pi_config, f"publicinbox.{name}.url")
+            or f"https://localhost/{name}"
+        )
         addresses = git_config_get_all(pi_config, f"publicinbox.{name}.address")
         if not addresses:
             addresses = [f"{name}@localhost"]
