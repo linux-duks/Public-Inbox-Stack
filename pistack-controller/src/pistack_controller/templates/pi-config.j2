@@ -17,7 +17,7 @@
 	topdir = {{ paths.extindex }}
 	url = https://{{ hosting.serve_host }}/all
 {% endif %}
-{% if imap.spamcheck_enabled %}
+{% if imap.enabled %}
 {% for inbox in imap.inboxes %}
 # imap inboxes
 [publicinbox "{{ inbox.id }}"]
@@ -29,8 +29,8 @@
 	sortorder = {{ loop.index }}
 {% endfor %}
 # end of imap inboxes
+{% endif %}
 {% if imap.spamcheck_enabled %}
 [publicinboxwatch]
 	spamcheck = spamc
-{% endif %}
 {% endif %}

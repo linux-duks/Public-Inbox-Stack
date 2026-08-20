@@ -11,8 +11,6 @@ internal processes (e.g. ``public-inbox-init`` appending inbox sections) are
 preserved across restarts.
 """
 
-from __future__ import annotations
-
 import os
 import re
 from pathlib import Path
@@ -23,8 +21,10 @@ from pistack_controller.config import Config
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
-GROKMIRROR_CONF = os.environ.get("GROKMIRROR_CONF", "/config/grokmirror.conf")
-PI_CONFIG = os.environ.get("PI_CONFIG", "/etc/public-inbox/config")
+GROKMIRROR_CONF = os.environ.get(
+    "GROKMIRROR_CONF", "/configs/grokmirror/grokmirror.conf"
+)
+PI_CONFIG = os.environ.get("PI_CONFIG", "/configs/pi-config/config")
 
 _SECTION_RE = re.compile(r"^\[[^\]\n]*\]\s*$")
 
@@ -38,18 +38,24 @@ def _environment() -> Environment:
 
 
 def render_grokmirror_conf(config: Config) -> str:
-    return _environment().get_template("grokmirror.conf.j2").render(
-        paths=config.paths, mirroring=config.mirroring
+    return (
+        _environment()
+        .get_template("grokmirror.conf.j2")
+        .render(paths=config.paths, mirroring=config.mirroring)
     )
 
 
 def render_pi_config(config: Config) -> str:
-    return _environment().get_template("pi-config.j2").render(
-        paths=config.paths,
-        hosting=config.hosting,
-        mirroring=config.mirroring,
-        imap=config.imap,
-        lei=config.lei,
+    return (
+        _environment()
+        .get_template("pi-config.j2")
+        .render(
+            paths=config.paths,
+            hosting=config.hosting,
+            mirroring=config.mirroring,
+            imap=config.imap,
+            lei=config.lei,
+        )
     )
 
 
