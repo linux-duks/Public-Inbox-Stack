@@ -13,6 +13,7 @@ type of the value they override.
 
 import os
 from dataclasses import dataclass, field
+from pistack_controller.render import PI_CONFIG
 from typing import Any, Iterator
 
 import yaml
@@ -53,7 +54,6 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "lei": {
         "enabled": False,
         "check_interval": 360,
-        "serving_address": "localhost",
         "output_config": "/etc/public-inbox/lei-output.pi.config",
         "default_settings": {"host": "", "threads": True, "obfuscate": True},
         "maildirs": {},
@@ -85,7 +85,9 @@ class Paths:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Paths":
-        return cls(**{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__})
+        return cls(
+            **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
+        )
 
 
 @dataclass
@@ -102,7 +104,9 @@ class Hosting:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Hosting":
-        return cls(**{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__})
+        return cls(
+            **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
+        )
 
 
 @dataclass
@@ -111,7 +115,9 @@ class Indexing:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Indexing":
-        return cls(**{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__})
+        return cls(
+            **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
+        )
 
 
 @dataclass
@@ -124,7 +130,9 @@ class Mirroring:
 
     @classmethod
     def from_dict(cls, data: dict) -> "Mirroring":
-        return cls(**{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__})
+        return cls(
+            **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
+        )
 
 
 @dataclass
@@ -135,7 +143,9 @@ class ImapInbox:
 
     @classmethod
     def from_dict(cls, data: dict) -> "ImapInbox":
-        return cls(**{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__})
+        return cls(
+            **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
+        )
 
 
 @dataclass
@@ -148,7 +158,11 @@ class Imap:
     def from_dict(cls, data: dict) -> "Imap":
         data = data or {}
         inboxes = [ImapInbox.from_dict(x) for x in data.get("inboxes", [])]
-        return cls(enabled=data.get("enabled", False), spamcheck_enabled=data.get("spamcheck_enabled", False), inboxes=inboxes)
+        return cls(
+            enabled=data.get("enabled", False),
+            spamcheck_enabled=data.get("spamcheck_enabled", False),
+            inboxes=inboxes,
+        )
 
 
 @dataclass
@@ -189,7 +203,9 @@ class Lei:
             enabled=data.get("enabled", False),
             check_interval=int(data.get("check_interval", 360)),
             serving_address=data.get("serving_address", "localhost"),
-            output_config=data.get("output_config", "/etc/public-inbox/lei-output.pi.config"),
+            output_config=data.get(
+                "output_config", f"{PI_CONFIG}/lei-output.pi.config"
+            ),
             default_settings=defaults,
             maildirs=maildirs,
         )

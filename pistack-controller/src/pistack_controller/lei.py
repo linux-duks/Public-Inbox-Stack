@@ -15,7 +15,7 @@ from pistack_controller.config import Config
 
 def lei_init(config: Config) -> int:
     base_dir = config.paths.lei
-    serving_address = config.lei.serving_address
+    serving_address = config.hosting.serve_host
     output_config = config.lei.output_config
     os.makedirs(base_dir, exist_ok=True)
     env = dict(os.environ)
