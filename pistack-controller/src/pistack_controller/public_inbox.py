@@ -6,10 +6,11 @@ Port of ``scripts/start-public-inbox.sh``. The multi-protocol
 ``Service`` (kept alive, autorestarted), replacing the old PID-juggling loop.
 """
 
-from tinysupervisor import Job, Service
+from tinysupervisor import Job, CronJob, Service
 
 from pistack_controller.config import Config
 from pistack_controller.reinit import ensure_inboxes
+from pistack_controller.indexer import run_extindex
 
 SPAMD_COMMAND = (
     "spamd --username debian-spamd -l --nouser-config "
@@ -46,19 +47,30 @@ def public_inbox_services(config: Config) -> list[Service]:
     depends = ["ensure_inboxes"] if config.hosting.enabled else []
     services: list[Service] = []
 
-    if config.hosting.http or config.hosting.nntp or config.hosting.imap:
-        services.append(_service("public-inbox-netd", _netd_command(config), depends))
-
     if config.imap.spamcheck_enabled:
         services.append(_service("spamd", SPAMD_COMMAND, depends))
 
     watch_depends = list(depends)
     if config.lei.enabled:
         watch_depends.append("lei_init")
+
     if config.imap.enabled or config.lei.enabled:
         services.append(
             _service("public-inbox-watch", "public-inbox-watch", watch_depends)
         )
+
+    if config.hosting.http or config.hosting.nntp or config.hosting.imap:
+        services.append(_service("public-inbox-netd", _netd_command(config), depends))
+
+    # TODO: check and add configs
+    services.append(
+        CronJob(
+            name="extindex_cr",
+            executable=lambda: run_extindex(config),
+            depends=depends,
+            interval=7200,
+        )
+    )
 
     return services
 
