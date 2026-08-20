@@ -43,6 +43,3 @@ services:
       - "${TINYSUPERVISOR_HTTP_PORT:-8081}:${TINYSUPERVISOR_HTTP_PORT:-8081}"
     networks:
       - lore
-
-volumes:
-  socket_dir:

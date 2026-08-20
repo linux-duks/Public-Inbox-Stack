@@ -7,6 +7,7 @@ PI_CONTROLLER = /pistack-controller/.venv/bin/pistack-controller
 # Dev mode: run the controller from the mounted source with uv (no rebuild needed)
 DEV_COMPOSE = $(COMPOSE) -f compose.dev.yaml
 DEV_CONTROLLER = uv run --project /pistack-controller pistack-controller
+PROXY_COMPOSE = -f proxy.compose.yaml
 
 .PHONY: run watch stop logs build rebuild dev dev-watch index purge obfuscate render help
 
@@ -30,13 +31,16 @@ build: ## Build the controller image
 rebuild: ## Rebuild the controller image from scratch (no cache) and restart
 	$(COMPOSE) build --no-cache
 	$(COMPOSE) down
-	$(COMPOSE) up -d
 
 dev: ## Start the stack in dev mode (source mounted, uv run)
 	$(DEV_COMPOSE) up -d
 
 dev-watch: ## Start the stack in dev mode in the foreground
 	$(DEV_COMPOSE) up
+
+## run with the aditional proxy compose
+run-with-proxy: run ## Start the stack (controller container)
+	$(COMPOSE) -f compose.yaml $(PROXY_COMPOSE) up -d
 
 ##@ One-shot operations (run inside the controller container)
 

@@ -3,10 +3,7 @@ version: '3'
 networks:
   lore:
     name: lore-network
-    driver: bridge
-
-include:
-  - ./compose.yaml
+    external: true
 
 services:
   nginx:
@@ -18,7 +15,6 @@ services:
       - "${SERVE_IMAP_PORT:-143}:143"
     volumes:
       - ./proxy/angie.conf:/etc/angie/angie.conf:z
-      - ./acme:/var/lib/angie/acme:z
       - ./public-inbox/contrib/css/:/var/www/static/css/:ro
       - socket_dir:/run/nginx
     depends_on:
