@@ -56,7 +56,7 @@ imap:
 lei:
   enabled: false
   check_interval: 360 # minutes between lei up --all runs
-  output_config: /etc/public-inbox/lei-output.pi.config
+  output_config: lei-output.pi.config
   default_settings:
     host: https://lore.kernel.org/all
     threads: true
@@ -68,5 +68,6 @@ lei:
     #   query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'
     #   host: https://another.lore.instance/all
     #   threads: false
-    "rust":
-      query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'
+    # "rust":
+    #   <<: *lei.default_settings
+    #   query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'

@@ -113,8 +113,7 @@ imap:
 lei:
   enabled: false
   check_interval: 360    # minutes between lei up --all runs
-  serving_address: localhost
-  output_config: /etc/public-inbox/lei-output.pi.config
+  output_config: lei-output.pi.config # will live in the PI_CONFIG folder
   default_settings:
     host: https://lore.kernel.org/all
     threads: true
