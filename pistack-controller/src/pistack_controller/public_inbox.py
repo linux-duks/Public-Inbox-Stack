@@ -75,9 +75,11 @@ def public_inbox_services(config: Config) -> list[Service]:
     return services
 
 
-def ensure_inboxes_job(config: Config) -> Job:
+def ensure_inboxes_job(
+    config: Config, additional_depends: list[str] | None = []
+) -> Job:
     return Job(
         name="ensure_inboxes",
         executable=lambda: ensure_inboxes(config),
-        depends=["init_folders"],
+        depends=additional_depends,
     )

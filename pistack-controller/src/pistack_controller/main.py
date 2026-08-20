@@ -49,15 +49,20 @@ def build_supervisor(config: Config):
     supervisor.register(
         Job(name="init_folders", executable=lambda: init_folders(config))
     )
+    hosting_depends = ["init_folders"]
 
     if config.lei.enabled:
-        supervisor.register(lei_init_job(config))
+        lei_init = lei_init_job(config)
+        supervisor.register(lei_init)
         supervisor.register(lei_up_cronjob(config))
+
+        hosting_depends.append(lei_init.name)
 
     if config.mirroring.enabled:
         supervisor.register(grokmirror_cronjob(config))
 
         extindex_depends = ["grokmirror"]
+        hosting_depends.append("grokmirror")
 
         if config.mirroring.indexing:
             supervisor.register(
@@ -80,7 +85,7 @@ def build_supervisor(config: Config):
             )
 
     if config.hosting.enabled:
-        supervisor.register(ensure_inboxes_job(config))
+        supervisor.register(ensure_inboxes_job(config, hosting_depends))
         for service in public_inbox_services(config):
             supervisor.register(service)
 
