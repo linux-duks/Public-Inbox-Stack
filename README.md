@@ -271,6 +271,12 @@ No separate setup step is needed — `pistack-controller serve` renders the
 grokmirror and public-inbox configs into the mounted `configs/` directories at
 startup. To re-render manually: `make render`.
 
+The public-inbox config is protected by a `base.config` merge: the freshly
+rendered output is diffed against the previous render (`/etc/public-inbox/base.config`)
+and only the delta is applied to the live config. Runtime additions made by
+internal processes (e.g. mirrored inbox sections added by `public-inbox-init`)
+are preserved across restarts.
+
 ### Missing configs.yaml
 
 ```
@@ -321,3 +327,8 @@ cd pistack-controller
 uv venv && uv pip install .
 .venv/bin/pistack-controller --help
 ```
+
+## TODO
+
+- There is still some behaviours that change the public inbox config files.
+   I would like to make the main config link to external files, and make sure they are being changed instead of the main file.
