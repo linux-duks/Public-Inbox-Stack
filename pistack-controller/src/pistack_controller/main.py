@@ -56,6 +56,9 @@ def build_supervisor(config: Config):
 
     if config.mirroring.enabled:
         supervisor.register(grokmirror_cronjob(config))
+
+        extindex_depends = ["grokmirror"]
+
         if config.mirroring.indexing:
             supervisor.register(
                 RecurrentJob(
@@ -64,20 +67,15 @@ def build_supervisor(config: Config):
                     depends=["grokmirror"],
                 )
             )
-            if config.mirroring.extindex:
-                supervisor.register(
-                    RecurrentJob(
-                        name="extindex",
-                        executable=lambda: run_extindex(config),
-                        depends=["index"],
-                    )
-                )
-        elif config.mirroring.extindex:
+            # also wait for internal indexing
+            extindex_depends.append("index")
+
+        if config.mirroring.extindex:
             supervisor.register(
                 RecurrentJob(
-                    name="extindex",
+                    name="grok_extindex",
                     executable=lambda: run_extindex(config),
-                    depends=["grokmirror"],
+                    depends=extindex_depends,
                 )
             )
 
