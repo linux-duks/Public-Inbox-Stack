@@ -4,3 +4,4 @@ configs/**
 maildirs/**
 .env
 configs.yaml
+*.pyc

@@ -24,9 +24,13 @@ services:
     # uncomment if configuring secrets using .env file
     # env_file:
     #   - ./app.env
+    network_mode: "host"
     environment:
       - HOME=/tmp
-      - PI_CONFIG=/etc/public-inbox/config
+      - XDG_DATA_HOME=/data/state # used by lei
+      - XDG_CONFIG_HOME=/data/state # used by lei
+      - PI_CONFIG=/configs/pi-configs/config
+      - GROKMIRROR_CONF=/configs/grokmirror/grokmirror.conf
       - CONFIG_PATH=/configs.yaml
       - TINYSUPERVISOR_HTTP_PORT=${TINYSUPERVISOR_HTTP_PORT:-8081}
       - TINYSUPERVISOR_VERBOSITY=${TINYSUPERVISOR_VERBOSITY:-info}
@@ -35,10 +39,8 @@ services:
       - ./pistack-controller:/pistack-controller
       - ./data/:/data/:z
       - ./configs.yaml:/configs.yaml:ro
-      - ./configs/grokmirror/:/config/:z
-      - ./configs/pi-configs/:/etc/public-inbox/:z
+      - ./configs/:/configs/:z
       - ./public-inbox/contrib/css/:/static/css/:ro
       - ./logs/:/var/log/public-inbox/:z
     command: uv run --project /pistack-controller pistack-controller serve
-    network_mode: "host"
 
