@@ -39,7 +39,7 @@ dev-watch: ## Start the stack in dev mode in the foreground
 	$(DEV_COMPOSE) up
 
 ## run with the aditional proxy compose
-run-with-proxy: proxy-config ## Start the stack with the proxy compose file
+run-with-proxy:
 	$(COMPOSE) --env-file proxy/proxy.config -f compose.yaml $(PROXY_COMPOSE) up -d
 
 ##@ Proxy
