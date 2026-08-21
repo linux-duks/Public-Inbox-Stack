@@ -44,11 +44,28 @@ run-with-proxy: proxy-config ## Start the stack with the proxy compose file
 
 ##@ Proxy
 
+# Render proxy/angie.conf from the jinja2 template + proxy.config.
+# Uses uv natively when available; otherwise falls back to running uv from
+# the ghcr.io/astral-sh/uv container image.
+define run_proxy_render
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "==> Found uv toolchain, running natively..."; \
+		uv run --project pistack-controller python proxy/render_proxy.py $(1); \
+	else \
+		echo "==> uv toolchain not found, running with $(CONTAINER) (Image: ghcr.io/astral-sh/uv:debian)..."; \
+		$(CONTAINER) run --rm -it \
+			-v "$(CURDIR):/app" \
+			-w /app \
+			ghcr.io/astral-sh/uv:debian \
+			uv run --project pistack-controller python proxy/render_proxy.py $(1); \
+	fi
+endef
+
 proxy-config: ## Render proxy/angie.conf from proxy/angie.conf.j2 + proxy.config
-	uv run --project pistack-controller python proxy/render_proxy.py
+	$(call run_proxy_render)
 
 proxy-config-dry-run: ## Print the rendered angie.conf without writing it
-	uv run --project pistack-controller python proxy/render_proxy.py --dry-run
+	$(call run_proxy_render,--dry-run)
 
 ##@ One-shot operations (run inside the controller container)
 

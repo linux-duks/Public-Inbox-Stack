@@ -245,7 +245,9 @@ Unix socket.
 **`proxy/angie.conf` is generated** from `proxy/angie.conf.j2` (Jinja2) using
 `proxy/proxy.config` (KEY=VALUE, gitignored, see `proxy/proxy.config.example`):
 
-- `make proxy-config` (or `make proxy-config-dry-run` to preview) renders the config
+- `make proxy-config` (or `make proxy-config-dry-run` to preview) renders the config.
+  It uses `uv` natively when available, otherwise it falls back to running uv
+  from the `ghcr.io/astral-sh/uv:debian` container image (no host `uv` needed).
 - `make run-with-proxy` renders it and starts the stack with the proxy compose file
 - The same `proxy.config` feeds `${...}` external-port interpolation in
   `proxy.compose.yaml` via `--env-file` (`HTTP_PORT`, `HTTPS_PORT`, `NNTP_PORT`,
