@@ -3,7 +3,7 @@ version: '3'
 networks:
   lore:
     name: lore-network
-    external: true
+    driver: bridge
 
 services:
   nginx:
@@ -18,7 +18,8 @@ services:
       - ./public-inbox/contrib/css/:/var/www/static/css/:ro
       - socket_dir:/run/nginx
     depends_on:
-      - public-inbox-stack
+      public-inbox-stack:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - lore
