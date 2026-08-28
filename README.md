@@ -344,8 +344,8 @@ uv venv && uv pip install .
 
 ## TODO
 
-- There is still some behaviours that change the public inbox config files.
+- [ ] There is still some behaviours that change the public inbox config files.
    I would like to make the main config link to external files, and make sure they are being changed instead of the main file.
-- add a obfuscate config option, managed automatically. (can the indexers set it by default?)
-    - when obsfuscate is on, add a step after grokmirror to set obfuscation in the config file
-- Make grokmirror use a different config file
+- [ ] add a obfuscate config option, managed automatically. (can the indexers set it by default?)
+  - when obsfuscate is on, add a step after grokmirror to set obfuscation in the config file
+- [ ] Make grokmirror use a different config file
