@@ -34,7 +34,6 @@ services:
       - ./configs.yaml:/configs.yaml:ro
       - ./configs/:/configs/:z
       - ./public-inbox/contrib/css/:/static/css/:ro
-      - ./logs/:/var/log/public-inbox/:z
     command: /pistack-controller/.venv/bin/pistack-controller serve
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS \"http://localhost:$${TINYSUPERVISOR_HTTP_PORT:-8081}/health\" || exit 1"]
