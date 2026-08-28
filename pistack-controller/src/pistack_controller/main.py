@@ -12,11 +12,11 @@ import argparse
 import os
 import sys
 
-from tinysupervisor import Job, RecurrentJob, init_supervisor
+from tinysupervisor import Job, init_supervisor
 
 from pistack_controller import render
 from pistack_controller.config import Config, ConfigError, load_config, PI_CONFIG
-from pistack_controller.grokmirror import grokmirror_cronjob
+from pistack_controller.grokmirror import register_grokmirror_tasks
 from pistack_controller.indexer import index_cloned_repos, run_extindex
 from pistack_controller.lei import lei_init_job, lei_up_cronjob
 from pistack_controller.obfuscate import obfuscate_config
@@ -59,30 +59,7 @@ def build_supervisor(config: Config):
         hosting_depends.append(lei_init.name)
 
     if config.mirroring.enabled:
-        supervisor.register(grokmirror_cronjob(config))
-
-        extindex_depends = ["grokmirror"]
-        hosting_depends.append("grokmirror")
-
-        if config.mirroring.indexing:
-            supervisor.register(
-                RecurrentJob(
-                    name="index",
-                    executable=lambda: index_cloned_repos(config),
-                    depends=["grokmirror"],
-                )
-            )
-            # also wait for internal indexing
-            extindex_depends.append("index")
-
-        if config.mirroring.extindex:
-            supervisor.register(
-                RecurrentJob(
-                    name="grok_extindex",
-                    executable=lambda: run_extindex(config),
-                    depends=extindex_depends,
-                )
-            )
+        register_grokmirror_tasks(supervisor, config)
 
     if config.hosting.enabled:
         supervisor.register(ensure_inboxes_job(config, hosting_depends))
