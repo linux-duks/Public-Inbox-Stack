@@ -1,79 +1,97 @@
 # Include shared container runtime detection
 include ./containers.mk
 
-# Hosting profile (anubis is included when ANUBIS_ENABLED=true)
-# Reads one profile per line from configs/hosting-profile.txt, renders as --profile flags
-HOSTING_PROFILE = $(shell cat configs/hosting-profile.txt 2>/dev/null | sed 's/^[[:space:]]*//;s/[[:space:]]*$$//;/^$$/d;s/^/--profile /' | tr '\n' ' ' || echo '--profile hosting')
+# Absolute path to the controller console script inside the container
+PI_CONTROLLER = /pistack-controller/.venv/bin/pistack-controller
 
-.PHONY: setup setup-dry-run run-hosting watch-hosting run-mirroring pull-mirror run-mirroring-indexed run-indexer purge-indexing obfuscate clean logs help
+# Dev mode: run the controller from the mounted source with uv (no rebuild needed)
+DEV_COMPOSE = $(COMPOSE) -f compose.dev.yaml
+DEV_CONTROLLER = uv run --project /pistack-controller pistack-controller
+PROXY_COMPOSE = -f proxy.compose.yaml
 
-##@ Setup
+.PHONY: run watch stop logs build rebuild dev dev-watch index purge obfuscate render proxy-config proxy-config-dry-run help
 
-setup: ## Generate configuration files from templates
-	bash scripts/setup.sh
+##@ Lifecycle
 
-setup-dry-run: ## Show what would be generated without writing files
-	bash scripts/setup.sh --dry-run
+run: ## Start the stack (controller container)
+	$(COMPOSE) up -d
 
-##@ Running services
-
-run-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) $(HOSTING_PROFILE) up -d
-
-watch-hosting: ## Start public-inbox and nginx (hosting profile)
-	$(COMPOSE) $(HOSTING_PROFILE) up 
-
-run-mirroring: ## Start grokmirror daemon (mirroring profile, detached)
-	$(COMPOSE) --profile mirroring up -d
-
-pull-mirror: ## Run grokmirror once, pull and exit (mirroring profile)
-	$(COMPOSE) --profile mirroring run --rm grokmirror grok-pull -v -c /config/grokmirror.conf
-
-run-mirroring-indexed: ## Start grokmirror with indexing hooks
-	GROKMIRROR_MODE=indexed $(COMPOSE) --profile mirroring up -d
-
-run-indexer: ## Run manual indexing of cloned repos
-	$(COMPOSE) --profile manual run --rm indexer
-
-purge-indexing: ## Purge public-inbox indexing data (preserves grokmirror clones)
-	$(COMPOSE) --profile manual run --rm indexer bash /scripts/purge-indexing.sh -d /data
-
-run-lei: ## Start lei-daemon (lei profile)
-	$(COMPOSE) --profile lei up -d lei-daemon
-
-run-all: setup run-mirroring run-hosting ## Setup, mirror, and host everything
-
-##@ Utilities
-
-obfuscate: ## Add obfuscate = true to all publicinbox sections missing it
-	bash scripts/obfuscate.sh
-
-logs: ## Show logs for all services
-	$(COMPOSE) logs -f
-
-logs-hosting: ## Show logs for hosting services
-	$(COMPOSE) $(HOSTING_PROFILE) logs -f
-
-logs-mirroring: ## Show logs for mirroring services
-	$(COMPOSE) --profile mirroring logs -f
-
-logs-lei: ## Follow lei-daemon logs
-	$(COMPOSE) --profile lei logs -f
+watch: ## Start the stack in the foreground
+	$(COMPOSE) up
 
 stop: ## Stop all services
 	$(COMPOSE) down
 
-stop-hosting: ## Stop hosting services
-	$(COMPOSE) $(HOSTING_PROFILE) down
+logs: ## Show logs for all services
+	$(COMPOSE) logs -f
 
-stop-mirroring: ## Stop mirroring services
-	$(COMPOSE) --profile mirroring down
+build: ## Build the controller image
+	$(COMPOSE) build
 
-stop-lei: ## Stop lei-daemon
-	$(COMPOSE) --profile lei down
+rebuild: ## Rebuild the controller image from scratch (no cache) and restart
+	$(COMPOSE) build --no-cache
+	$(COMPOSE) down
 
-clean: ## Remove generated build files
-	rm -rf build/
+dev: ## Start the stack in dev mode (source mounted, uv run)
+	$(DEV_COMPOSE) up -d
+
+dev-watch: ## Start the stack in dev mode in the foreground
+	$(DEV_COMPOSE) up
+
+## run with the aditional proxy compose
+run-with-proxy: run
+	$(COMPOSE) --env-file proxy/proxy.config -f compose.yaml $(PROXY_COMPOSE) up -d
+
+##@ Proxy
+
+# Render proxy/angie.conf from the jinja2 template + proxy.config.
+# Uses uv natively when available; otherwise falls back to running uv from
+# the ghcr.io/astral-sh/uv container image.
+define run_proxy_render
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "==> Found uv toolchain, running natively..."; \
+		uv run --project pistack-controller python proxy/render_proxy.py $(1); \
+	else \
+		echo "==> uv toolchain not found, running with $(CONTAINER) (Image: ghcr.io/astral-sh/uv:debian)..."; \
+		$(CONTAINER) run --rm -it \
+			-v "$(CURDIR):/app" \
+			-w /app \
+			ghcr.io/astral-sh/uv:debian \
+			uv run --project pistack-controller python proxy/render_proxy.py $(1); \
+	fi
+endef
+
+proxy-config: ## Render proxy/angie.conf from proxy/angie.conf.j2 + proxy.config
+	$(call run_proxy_render)
+
+proxy-config-dry-run: ## Print the rendered angie.conf without writing it
+	$(call run_proxy_render,--dry-run)
+
+##@ One-shot operations (run inside the controller container)
+
+render: ## Render grokmirror + public-inbox configs
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) render
+
+dev-render: ## Render configs (dev)
+	$(DEV_COMPOSE) run --rm public-inbox-stack $(DEV_CONTROLLER) render
+
+index: ## Index cloned repos (+ extindex)
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) index
+
+dev-index: ## Index cloned repos (dev)
+	$(DEV_COMPOSE) run --rm public-inbox-stack $(DEV_CONTROLLER) index
+
+purge: ## Purge indexing data (preserves grokmirror clones)
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) purge
+
+dev-purge: ## Purge indexing data (dev)
+	$(DEV_COMPOSE) run --rm public-inbox-stack $(DEV_CONTROLLER) purge
+
+obfuscate: ## Add obfuscate = true to all publicinbox sections missing it
+	$(COMPOSE) run --rm public-inbox-stack $(PI_CONTROLLER) obfuscate
+
+dev-obfuscate: ## Add obfuscate = true to all publicinbox sections (dev)
+	$(DEV_COMPOSE) run --rm public-inbox-stack $(DEV_CONTROLLER) obfuscate
 
 ##@ Help
 

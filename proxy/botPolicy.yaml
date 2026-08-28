@@ -1,4 +1,4 @@
-
+# Anubis bot protection policy - STATIC, edit directly.
 bots:
   # import default configs
   - import: (data)/meta/default-config.yaml

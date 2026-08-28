@@ -3,3 +3,7 @@ acme/**
 configs/**
 maildirs/**
 .env
+configs.yaml
+proxy/proxy.config
+proxy/angie.conf
+*.pyc

@@ -1,0 +1,35 @@
+# proxy.config.example - copy to proxy/proxy.config (gitignored) and edit.
+#
+# This file is read by:
+#   - proxy/render_proxy.py  -> renders proxy/angie.conf via `make proxy-config`
+#   - proxy.compose.yaml     -> external host ports (via `--env-file proxy.config`)
+#
+# ENABLED toggles whether the protocol is served by Angie. The *_PORT value
+# is the host-side (external) port published by compose; the container listens
+# on the standard port (80/443/119/143) internally.
+
+SERVE_HOST=lore.domain.tld
+
+# HTTP
+HTTP_ENABLED=true
+HTTP_PORT=80
+
+# HTTPS (only served when ACME is also enabled)
+HTTPS_ENABLED=false
+HTTPS_PORT=443
+
+# NNTP
+NNTP_ENABLED=true
+NNTP_PORT=119
+
+# IMAP (+ IMAPS 993 when ACME enabled)
+IMAP_ENABLED=false
+IMAP_PORT=143
+
+# ACME/SSL configuration
+ACME_ENABLED=false
+ACME_EMAIL=admin@example.com
+
+# Anubis bot protection
+ANUBIS_ENABLED=true
+ANUBIS_PORT=18888
