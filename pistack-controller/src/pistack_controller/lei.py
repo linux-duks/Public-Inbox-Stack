@@ -113,7 +113,6 @@ def lei_init(config: Config) -> int:
             for maildir in config.lei.maildirs:
                 inboxdir = os.path.join(base_dir, maildir.name)
                 handle.write(f'[publicinbox "{maildir.name}"]\n')
-                handle.write(f"\taddress = {maildir.name}@{serving_address}\n")
                 handle.write(f"\turl = /{maildir.name}\n")
                 handle.write(f"\tinboxdir = {inboxdir}\n")
                 handle.write(f"\twatch = maildir:{os.path.join(inboxdir, 'INBOX')}\n")
