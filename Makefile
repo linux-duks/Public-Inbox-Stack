@@ -9,7 +9,7 @@ DEV_COMPOSE = $(COMPOSE) -f compose.dev.yaml
 DEV_CONTROLLER = uv run --project /pistack-controller pistack-controller
 PROXY_COMPOSE = -f proxy.compose.yaml
 
-.PHONY: run watch stop logs build rebuild dev dev-watch index purge obfuscate render proxy-config proxy-config-dry-run help
+.PHONY: run watch stop logs build rebuild dev dev-watch publish index purge obfuscate render proxy-config proxy-config-dry-run help
 
 ##@ Lifecycle
 
@@ -41,6 +41,36 @@ dev-watch: ## Start the stack in dev mode in the foreground
 ## run with the aditional proxy compose
 run-with-proxy: run
 	$(COMPOSE) --env-file proxy/proxy.config -f compose.yaml $(PROXY_COMPOSE) up -d
+
+##@ Publish
+
+# Registry used when publishing the image. Empty by default: the image is
+# pushed to whatever registry the user's podman/docker is configured for
+# (e.g. docker.io or the registry they are logged into). Override with:
+#   make publish REGISTRY=registry.oci.internal
+REGISTRY ?=
+IMAGE ?= public-inbox-stack
+IMAGE_TAG ?= $(shell git describe --tags --always 2>/dev/null || echo latest)
+
+publish: ## Build and push the image to an OCI registry
+	@if [ -z "$(REGISTRY)" ]; then \
+		printf "Registry name (e.g. registry.oci.internal), empty to use your default registry: " >&2; \
+		read -r REGISTRY < /dev/tty || true; \
+	fi; \
+	REGISTRY="$${REGISTRY:-$(REGISTRY)}"; \
+	BASE="$${REGISTRY:+$$REGISTRY/}$(IMAGE)"; \
+	IMG="$$BASE:$(IMAGE_TAG)"; \
+	echo "==> Building $$IMG"; \
+	$(CONTAINER) build \
+		--build-arg USER_ID=$(UID) \
+		--build-arg GROUP_ID=$(GID) \
+		-t "$$IMG" \
+		-t "$$BASE:latest" \
+		-f Containerfile .; \
+	echo "==> Pushing $$IMG"; \
+	$(CONTAINER) push "$$IMG"; \
+	echo "==> Pushing $$BASE:latest"; \
+	$(CONTAINER) push "$$BASE:latest"
 
 ##@ Proxy
 
