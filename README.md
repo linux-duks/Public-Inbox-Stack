@@ -168,6 +168,7 @@ Mirroring, IMAP and lei use separate subfolders of a shared `/data` parent:
 | `make stop` | Stop all services |
 | `make logs` | Follow logs for all services |
 | `make build` | Build the controller image |
+| `make publish` | Build and push the controller image (see [Kubernetes](#kubernetes-helm-chart)) |
 
 ### One-shot operations
 
@@ -276,6 +277,39 @@ make run COMPOSE=docker-compose
 
 When running with `sudo`, the real user/group ID is preserved so files in
 `data/` are owned by your user, not root.
+
+## Kubernetes (Helm chart)
+
+A Helm chart lives in `chart/`. It deploys the controller (and optionally
+Anubis) and is fully configurable via `values.yaml`.
+
+### Publish the image
+
+Build and push the controller image to a registry. With an empty registry it
+uses whatever your podman/docker is logged into:
+
+```bash
+make publish
+make publish REGISTRY=registry.oci.internal
+```
+
+The image is tagged with the current git commit and `latest`.
+
+### Install
+
+```bash
+helm install lore ./chart --namespace lore --create-namespace --values my-values.yaml
+```
+
+Copy `chart/values.yaml`, set `image.repository` to the registry you pushed to,
+edit the config (protocols, serve host, mirroring, imap, lei) and upgrade:
+
+```bash
+helm upgrade lore ./chart --namespace lore --values my-values.yaml
+```
+
+See `chart/README.md` for details, including mounting IMAP credentials as a
+Kubernetes Secret.
 
 ## Troubleshooting
 
