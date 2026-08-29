@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "public-inbox-stack.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "public-inbox-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate # delete before create
+  selector:
+    matchLabels:
+      {{- include "public-inbox-stack.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "public-inbox-stack.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: public-inbox-stack
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/pistack-controller/.venv/bin/pistack-controller", "serve"]
+          ports:
+            {{- if .Values.service.http.enabled }}
+            - containerPort: {{ .Values.service.http.port }}
+              name: http
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.service.nntp.enabled }}
+            - containerPort: {{ .Values.service.nntp.port }}
+              name: nntp
+              protocol: TCP
+            {{- end }}
+            {{- if .Values.service.imap.enabled }}
+            - containerPort: {{ .Values.service.imap.port }}
+              name: imap
+              protocol: TCP
+            {{- end }}
+            - containerPort: {{ .Values.supervisor.port }}
+              name: supervisor
+              protocol: TCP
+          env:
+            - name: HOME
+              value: /tmp
+            - name: XDG_DATA_HOME
+              value: /data/state
+            - name: XDG_CONFIG_HOME
+              value: /data/state
+            - name: PI_CONFIG
+              value: /configs/pi-config/config
+            - name: GROKMIRROR_CONF
+              value: /configs/grokmirror/grokmirror.conf
+            - name: CONFIG_PATH
+              value: /configs.yaml
+            - name: TINYSUPERVISOR_HTTP_PORT
+              value: {{ .Values.supervisor.port | quote }}
+            - name: TINYSUPERVISOR_VERBOSITY
+              value: {{ .Values.supervisor.verbosity | quote }}
+            - name: EXTINDEX_DESCRIPTION
+              value: {{ .Values.extindexDescription | quote }}
+            {{- if .Values.secrets.envFile.enabled }}
+            - name: ENV_PATH
+              value: {{ .Values.secrets.envFile.mountPath | quote }}
+            {{- end }}
+            {{- range $key, $value := .Values.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- range .Values.secrets.env }}
+            - name: {{ .name }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .valueFrom.secretKeyRef.name }}
+                  key: {{ .valueFrom.secretKeyRef.key }}
+            {{- end }}
+          {{- with .Values.secrets.envFrom }}
+          envFrom:
+            {{- range . }}
+            - secretRef:
+                name: {{ .secretName }}
+            {{- end }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            - name: configs
+              mountPath: /configs
+            - name: config
+              mountPath: /configs.yaml
+              subPath: configs.yaml
+            {{- if .Values.secrets.envFile.enabled }}
+            - name: secret-env
+              mountPath: {{ .Values.secrets.envFile.mountPath }}
+              subPath: {{ .Values.secrets.envFile.key }}
+              readOnly: true
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.supervisor.port }}
+            initialDelaySeconds: {{ .Values.probes.startupDelaySeconds }}
+            periodSeconds: {{ .Values.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.supervisor.port }}
+            initialDelaySeconds: {{ .Values.probes.startupDelaySeconds }}
+            periodSeconds: {{ .Values.probes.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
+            failureThreshold: {{ .Values.probes.failureThreshold }}
+      volumes:
+        - name: data
+          {{- if .Values.nfs.enabled }}
+          nfs:
+            server: {{ .Values.nfs.server }}
+            path: {{ .Values.nfs.path }}/data
+            readOnly: false
+          {{- else if .Values.pvc.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "public-inbox-stack.fullname" . }}-data-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: configs
+          {{- if .Values.nfs.enabled }}
+          nfs:
+            server: {{ .Values.nfs.server }}
+            path: {{ .Values.nfs.path }}/configs
+            readOnly: false
+          {{- else if .Values.pvc.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "public-inbox-stack.fullname" . }}-config-pvc
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: config
+          configMap:
+            name: {{ include "public-inbox-stack.fullname" . }}-config
+        {{- if .Values.secrets.envFile.enabled }}
+        - name: secret-env
+          secret:
+            secretName: {{ .Values.secrets.envFile.secretName }}
+        {{- end }}

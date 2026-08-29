@@ -1,0 +1,65 @@
+{{- if .Values.anubis.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "public-inbox-stack.fullname" . }}-anubis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "public-inbox-stack.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "public-inbox-stack.anubisSelectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "public-inbox-stack.anubisSelectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: anubis
+          image: "{{ .Values.anubis.image.repository }}:{{ .Values.anubis.image.tag }}"
+          imagePullPolicy: {{ .Values.anubis.image.pullPolicy }}
+          env:
+            - name: BIND
+              value: {{ printf ":%d" (int .Values.anubis.port) | quote }}
+            - name: TARGET
+              value: {{ printf "http://%s:%d" (include "public-inbox-stack.fullname" $) (int .Values.service.http.port) | quote }}
+            - name: DIFFICULTY
+              value: {{ .Values.anubis.difficulty | quote }}
+            - name: SERVE_ROBOTS_TXT
+              value: {{ .Values.anubis.serveRobotsTxt | quote }}
+            - name: OG_PASSTHROUGH
+              value: {{ .Values.anubis.ogPassthrough | quote }}
+            - name: OG_EXPIRY_TIME
+              value: {{ .Values.anubis.ogExpiryTime | quote }}
+            - name: POLICY_FNAME
+              value: /data/cfg/botPolicy.yaml
+          ports:
+            - containerPort: {{ .Values.anubis.port }}
+              name: anubis
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.anubis.resources | nindent 12 }}
+          volumeMounts:
+            - name: botpolicy
+              mountPath: /data/cfg/botPolicy.yaml
+              subPath: botPolicy.yaml
+              readOnly: true
+          livenessProbe:
+            exec:
+              command: ["anubis", "--healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 30
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command: ["anubis", "--healthcheck"]
+            periodSeconds: 10
+            timeoutSeconds: 30
+            failureThreshold: 5
+      volumes:
+        - name: botpolicy
+          configMap:
+            name: {{ include "public-inbox-stack.fullname" . }}-anubis-botpolicy
+{{- end }}

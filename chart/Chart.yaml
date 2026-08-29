@@ -1,0 +1,7 @@
+apiVersion: v2
+name: public-inbox-stack
+description: "public-inbox-stack"
+version: "1.0"
+appVersion: "2.0.0"
+kubeVersion: ">=1.22.0-0"
+type: application

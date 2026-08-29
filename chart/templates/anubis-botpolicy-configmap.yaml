@@ -1,0 +1,12 @@
+{{- if .Values.anubis.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "public-inbox-stack.fullname" . }}-anubis-botpolicy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "public-inbox-stack.labels" . | nindent 4 }}
+data:
+  botPolicy.yaml: |
+    {{- .Values.anubis.botPolicy | nindent 4 }}
+{{- end }}

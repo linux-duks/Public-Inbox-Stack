@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "public-inbox-stack.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "public-inbox-stack.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  ports:
+    {{- if .Values.service.http.enabled }}
+    - port: {{ .Values.service.http.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    {{- end }}
+    {{- if .Values.service.nntp.enabled }}
+    - port: {{ .Values.service.nntp.port }}
+      targetPort: nntp
+      protocol: TCP
+      name: nntp
+    {{- end }}
+    {{- if .Values.service.imap.enabled }}
+    - port: {{ .Values.service.imap.port }}
+      targetPort: imap
+      protocol: TCP
+      name: imap
+    {{- end }}
+    {{- if .Values.service.supervisor.enabled }}
+    - port: {{ .Values.service.supervisor.port }}
+      targetPort: supervisor
+      protocol: TCP
+      name: supervisor
+    {{- end }}
+  selector:
+    {{- include "public-inbox-stack.selectorLabels" . | nindent 4 }}

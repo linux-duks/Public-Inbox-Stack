@@ -1,0 +1,18 @@
+{{- if .Values.anubis.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "public-inbox-stack.fullname" . }}-anubis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "public-inbox-stack.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.anubis.port }}
+      targetPort: anubis
+      protocol: TCP
+      name: anubis
+  selector:
+    {{- include "public-inbox-stack.anubisSelectorLabels" . | nindent 4 }}
+{{- end }}

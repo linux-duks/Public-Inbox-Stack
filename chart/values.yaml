@@ -1,0 +1,267 @@
+image:
+  repository: distribution.example.tld/public-inbox-stack
+  tag: v2.0.0
+  pullPolicy: IfNotPresent
+
+# tinySupervisor HTTP API / healthcheck (TINYSUPERVISOR_HTTP_PORT).
+# The /health endpoint on this port is used for liveness/readiness probes.
+supervisor:
+  port: 8081
+  verbosity: info
+
+# Description written to the extindex "description" file (EXTINDEX_DESCRIPTION).
+extindexDescription: All Lore
+
+service:
+  type: ClusterIP
+  # Each protocol port maps 1:1 to the container port and MUST match the
+  # corresponding hosting.*_port in config.yaml (http_port/nntp_port/imap_port).
+  # Disable a protocol by setting enabled: false (also disable it in config.yaml).
+  http:
+    enabled: true
+    port: 8080
+  nntp:
+    enabled: false
+    port: 8119
+  imap:
+    enabled: false
+    port: 8143
+  # Optionally expose the tinySupervisor healthcheck port as a Service port
+  # (e.g. for external monitoring). Disabled by default.
+  supervisor:
+    enabled: false
+    port: 8081
+
+# Startup and probe tuning. The controller can take a long time to start
+# (initial mirror/clone/index), so startupDelaySeconds is configurable.
+# you might need to change this in the first run
+probes:
+  startupDelaySeconds: 20
+  periodSeconds: 60
+  timeoutSeconds: 5
+  failureThreshold: 12
+
+# Anubis proof-of-work bot protection. When enabled, the ingress routes all
+# HTTP traffic to the anubis pod, which forwards to the main service. nginx is
+# NOT used. Requires service.http.enabled to be true.
+anubis:
+  enabled: false
+  image:
+    repository: ghcr.io/techarohq/anubis
+    tag: latest
+    pullPolicy: IfNotPresent
+  # Port anubis listens on (BIND) and that the anubis Service exposes.
+  port: 18888
+  difficulty: "5"
+  serveRobotsTxt: "true"
+  ogPassthrough: "true"
+  ogExpiryTime: "24h"
+  resources: {}
+  # Anubis bot protection policy (mounted read-only at /data/cfg/botPolicy.yaml).
+  botPolicy: |
+    # Anubis bot protection policy - STATIC, edit directly.
+    bots:
+      # import default configs
+      - import: (data)/meta/default-config.yaml
+
+      - name: allow-uptime-kuma
+        user_agent_regex: Uptime-Kuma.*
+        action: ALLOW
+
+      - name: allow-assets
+        action: ALLOW
+        path_regex: \.(eot|ttf|woff|woff2|css|js|jpg|jpeg|png|mp4|webp|svg)$
+
+      - name: generic-browser
+        user_agent_regex: >-
+          Mozilla|Opera
+        action: CHALLENGE
+
+    dnsbl: false
+
+    status_codes:
+      CHALLENGE: 200
+      DENY: 200
+
+    store:
+      backend: memory
+      parameters: {}
+
+    thresholds:
+      # By default Anubis ships with the following thresholds:
+      - name: minimal-suspicion # This client is likely fine, its soul is lighter than a feather
+        expression: weight <= 0 # a feather weighs zero units
+        action: ALLOW # Allow the traffic through
+      # For clients that had some weight reduced through custom rules, give them a
+      # lightweight challenge.
+      - name: mild-suspicion
+        expression:
+          all:
+            - weight > 0
+            - weight < 10
+        action: CHALLENGE
+        challenge:
+          # https://anubis.techaro.lol/docs/admin/configuration/challenges/metarefresh
+          algorithm: metarefresh
+          difficulty: 1
+      # For clients that are browser-like but have either gained points from custom rules or
+      # report as a standard browser.
+      - name: moderate-suspicion
+        expression:
+          all:
+            - weight >= 10
+            - weight < 20
+        action: CHALLENGE
+        challenge:
+          # https://anubis.techaro.lol/docs/admin/configuration/challenges/proof-of-work
+          algorithm: fast
+          difficulty: 2 # two leading zeros, very fast for most clients
+      - name: mild-proof-of-work
+        expression:
+          all:
+            - weight >= 20
+            - weight < 30
+        action: CHALLENGE
+        challenge:
+          # https://anubis.techaro.lol/docs/admin/configuration/challenges/proof-of-work
+          algorithm: fast
+          difficulty: 4
+      # For clients that are browser like and have gained many points from custom rules
+      - name: extreme-suspicion
+        expression: weight >= 30
+        action: CHALLENGE
+        challenge:
+          # https://anubis.techaro.lol/docs/admin/configuration/challenges/proof-of-work
+          algorithm: fast
+          difficulty: 6
+
+
+
+podSecurityContext: {}
+  # runAsUser: 1000
+  # runAsGroup: 1000
+  # fsGroup: 1000
+
+ingress:
+  enabled: false
+  className: ""
+  # annotations:
+  #   traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
+  # tls:
+  #   - hosts:
+  #       - lore.example.tld
+  #     secretName: lore-tls
+  # hosts:
+  #   - host: lore.example.tld
+  #     paths:
+  #       - path: /
+  #         pathType: Prefix
+
+# persistant storage can be configured to use PVC or an external NFS share
+pvc:
+  enabled: true
+  # size of the data volume. The configs volume will be created with 1GB
+  size: 200Gi
+  storageClassName: ceph
+nfs:
+  enabled: false
+  server: nfs.server.example
+  # there should be a "data" and a "configs" folder in this nfs share
+  # otherwise, the mount will fail
+  path: /mnt/path/to/share
+
+resources:
+  limits:
+    memory: 2048Mi
+  requests:
+    cpu: 100m
+    memory: 1024Mi
+
+# Extra environment variables for the main container, e.g.:
+# env:
+#   TINYSUPERVISOR_VERBOSITY: debug
+env: {}
+
+# Secrets mounted into the main container. The chart only *references*
+# pre-existing Kubernetes Secrets by name - it never creates them, so you are
+# free to manage encryption however you like (kubectl, SOPS, Sealed Secrets,
+# External Secrets Operator, Vault, ...). See chart/README.md for examples.
+secrets:
+  # Mount a Secret as a .env (dotenv) file. The controller loads config
+  # overrides such as IMAP_INBOXES_0_URL from this file (ENV_PATH), NOT from
+  # process environment variables - so this is the required mechanism for
+  # IMAP/lei credentials and other config overrides.
+  envFile:
+    enabled: false
+    secretName: public-inbox-secrets
+    # key inside the Secret holding the dotenv content
+    key: .env
+    # path to mount it at; also used as ENV_PATH
+    mountPath: /secrets/.env
+  # Mount whole Secrets as process environment variables (envFrom). Optional.
+  envFrom: []
+    # - secretName: public-inbox-secrets
+  # Mount individual Secret keys as specific environment variables. Optional.
+  env: []
+    # - name: IMAP_INBOXES_0_URL
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: public-inbox-secrets
+    #       key: IMAP_INBOXES_0_URL
+
+config:
+  yaml: |
+    paths:
+      root: /data
+      mirror: /data/mirror
+      imap: /data/imap
+      lei: /data/lei
+      extindex: /data/all
+
+    hosting:
+      enabled: true
+
+      # serving protocols supported by public-inbox
+      http: true
+      nntp: true
+      imap: false
+
+      # Public-inbox serving URL (public)
+      serve_host: lore.domain.tld
+      # these ports must stay in sync with service.*.port above
+      http_port: 8080
+      https_port: 8443
+      nntp_port: 8119
+      imap_port: 8143
+
+    indexing:
+      # Index level: basic (no full-text search), medium (no phrase search), full (default)
+      level: full
+
+    mirroring:
+      enabled: true
+      upstream_host: https://lore.other-domain.tld
+      # seconds between grok-pull runs (scheduling handled by tinySupervisor)
+      interval: 7200
+      # index after each pull (replaces GROKMIRROR_MODE=indexed)
+      indexing: false
+      # run cross-inbox extindex after indexing/pulls
+      extindex: true
+
+    imap:
+      enabled: false
+      spamcheck_enabled: false
+      inboxes:
+        - id: list.name
+          address: name.list.domain.tld
+          # credentials belong in .env as IMAP_INBOXES_0_URL (or here, not committed)
+          url: imaps://user:pass@imap.server.tld:993/INBOX
+
+    lei:
+      enabled: false
+      check_interval: 360 # minutes between lei up --all runs
+      output_config: lei-output.pi.config
+      default_settings: &lei_default_settings
+        host: https://lore.kernel.org/all
+        threads: true
+        obfuscate: true
