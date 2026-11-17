@@ -105,13 +105,46 @@ exception is the optional `imagePullSecrets.create` Secret above), so any
 encryption method works (plain `kubectl`, SOPS, Sealed Secrets, External
 Secrets Operator, ...).
 
-IMAP credentials and other config overrides are read from a `.env` file
-(`ENV_PATH`). Create a Secret and mount it as that file:
+### Credentials for the `config.yaml` block
+
+Never put credentials in the `config.yaml` block of your values file — it is
+rendered into a ConfigMap in clear text. Instead, leave the key empty and let
+the controller fill it from the dotenv file it reads at `ENV_PATH`:
+
+```yaml
+config:
+  yaml: |
+    imap:
+      inboxes:
+        - id: kernel.ime
+          address: kernel@lists.ime.usp.br
+          # filled in from the Secret (IMAP_INBOXES_0_URL) - keep the key
+          url: ""
+```
+
+The empty key is **required**: overrides only apply to leaves that already
+exist in `config.yaml`, so removing the line silently drops the override.
+
+Create the Secret with the chart's Makefile (`chart/Makefile`, run from the
+repository root; it prompts for the URL, hides the input, stores it as
+`IMAP_INBOXES_0_URL` in the gitignored root `.env` and applies the Secret —
+re-running rotates it):
 
 ```bash
-# secrets.env:  IMAP_INBOXES_0_URL=imaps://user:pass@imap.server.tld:993/INBOX
-kubectl create secret generic public-inbox-secrets --from-file=.env=secrets.env -n lore
+make -C chart secrets/create                                  # prompts for the URL
+make -C chart secrets/create NAMESPACE=lore                   # non-default namespace
+IMAP_URL='imaps://user:pass@imap.server.tld:993/INBOX' make -C chart secrets/create   # non-interactive
+make -C chart help                                            # chart targets
 ```
+
+Or do it by hand:
+
+```bash
+# .env:  IMAP_INBOXES_0_URL=imaps://user:pass@imap.server.tld:993/INBOX
+kubectl create secret generic public-inbox-secrets --from-file=.env=.env -n lore
+```
+
+The Secret holds a dotenv file, mounted as `ENV_PATH`:
 
 ```yaml
 secrets:
@@ -122,6 +155,13 @@ secrets:
     mountPath: /secrets/.env
 ```
 
-Every `KEY=VALUE` in the Secret overrides the matching config path
-(`imap.inboxes.0.url` → `IMAP_INBOXES_0_URL`). Secrets can also be mounted as
-process env vars with `secrets.envFrom` / `secrets.env`.
+Every `KEY=VALUE` in that file overrides the matching config path
+(`imap.inboxes.0.url` → `IMAP_INBOXES_0_URL`, `lei.maildirs.rust.query` →
+`LEI_MAILDIRS_RUST_QUERY`; list indices are numeric). Secrets can also be
+mounted as process env vars with `secrets.envFrom` / `secrets.env`, but the
+controller only reads overrides from the dotenv file.
+
+Create the Secret **before** installing: with `secrets.envFile.enabled` and a
+missing Secret the pod stays in `ContainerCreating`. A pod that starts with
+`url: ""` and no override gets `watch = ""` in the rendered public-inbox
+config, so IMAP watching does nothing until the Secret is there.

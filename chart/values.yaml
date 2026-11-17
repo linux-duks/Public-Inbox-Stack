@@ -185,7 +185,7 @@ ingress:
   #         pathType: Prefix
 
 # persistant storage can be configured to use PVC or an external NFS share
-pvc:
+persistence:
   enabled: true
   # size of the data volume. The configs volume will be created with 1GB
   size: 200Gi
@@ -217,7 +217,8 @@ secrets:
   # Mount a Secret as a .env (dotenv) file. The controller loads config
   # overrides such as IMAP_INBOXES_0_URL from this file (ENV_PATH), NOT from
   # process environment variables - so this is the required mechanism for
-  # IMAP/lei credentials and other config overrides.
+  # IMAP/lei credentials and other config overrides. Create it with
+  # `make secrets/create` (see chart/README.md).
   envFile:
     enabled: false
     secretName: public-inbox-secrets
@@ -281,8 +282,11 @@ config:
       inboxes:
         - id: list.name
           address: name.list.domain.tld
-          # credentials belong in .env as IMAP_INBOXES_0_URL (or here, not committed)
-          url: imaps://user:pass@imap.server.tld:993/INBOX
+          # Credentials are NOT set here: they come from the dotenv Secret
+          # mounted at ENV_PATH, as IMAP_INBOXES_0_URL (see the chart README
+          # and `make secrets/create`). The empty `url` key is required -
+          # overrides only apply to leaves that already exist in the config.
+          url: ""
 
     lei:
       enabled: false
