@@ -105,6 +105,7 @@ spec:
               subPath: {{ .Values.secrets.envFile.key }}
               readOnly: true
             {{- end }}
+          {{- if .Values.probes.enabled }}
           livenessProbe:
             httpGet:
               path: /health
@@ -121,6 +122,7 @@ spec:
             periodSeconds: {{ .Values.probes.periodSeconds }}
             timeoutSeconds: {{ .Values.probes.timeoutSeconds }}
             failureThreshold: {{ .Values.probes.failureThreshold }}
+          {{- end }}
       volumes:
         - name: data
           {{- if .Values.nfs.enabled }}

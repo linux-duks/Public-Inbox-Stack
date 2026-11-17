@@ -67,6 +67,37 @@ this Secret is only attached to the controller Deployment; the optional Anubis
 Deployment (`anubis.enabled`) is not modified — add its credentials to the
 Anubis image registry separately if needed.
 
+### First run: disable probes
+
+A first install has to clone/mirror the upstream inboxes and build the initial
+index. That can take anywhere from minutes to hours, and the controller's
+`/health` endpoint is not answering while it does. With probes enabled,
+Kubernetes restarts the container once `failureThreshold` is exhausted and the
+work starts over.
+
+For that first run, switch the liveness and readiness probes off entirely:
+
+```bash
+helm install lore ./chart --namespace lore --create-namespace \
+  --values my-values.yaml --set probes.enabled=false
+```
+
+```yaml
+probes:
+  enabled: false
+```
+
+When the initial index is built, turn them back on:
+
+```bash
+helm upgrade lore ./chart --namespace lore --values my-values.yaml
+```
+
+With `probes.enabled: false` nothing restarts a hung controller and the pod
+counts as Ready as soon as the container starts, so remember to re-enable them.
+If you only want to give startup more room, keep the probes and raise
+`probes.startupDelaySeconds` and/or `probes.failureThreshold` instead.
+
 ## Secrets
 
 The chart only references Secrets by name — it never creates them (the single

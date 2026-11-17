@@ -56,6 +56,13 @@ service:
 # (initial mirror/clone/index), so startupDelaySeconds is configurable.
 # you might need to change this in the first run
 probes:
+  # Set to false to omit the liveness and readiness probes entirely. Use this
+  # for the first run / initial indexing or mirroring: a slow but healthy
+  # controller fails the probe, gets killed and restarts its work from scratch.
+  # With probes disabled nothing restarts a hung controller - re-enable them
+  # (or tune startupDelaySeconds/failureThreshold) once the initial index is
+  # built.
+  enabled: true
   startupDelaySeconds: 20
   periodSeconds: 60
   timeoutSeconds: 5
