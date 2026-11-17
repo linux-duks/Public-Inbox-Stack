@@ -3,6 +3,26 @@ image:
   tag: v2.0.0
   pullPolicy: IfNotPresent
 
+# Credentials used to pull the private image above. Both mechanisms can be
+# combined; they are merged into the pod's imagePullSecrets list.
+imagePullSecrets:
+  # Names of Kubernetes Secrets that already exist in the release namespace
+  # (type kubernetes.io/dockerconfigjson). The chart does NOT create these.
+  existing: []
+    # - my-registry-credentials
+  # Create a kubernetes.io/dockerconfigjson Secret from the values below.
+  # Convenient, but the credentials then live in your values file - prefer
+  # `existing` together with SOPS/Sealed Secrets/External Secrets for real use.
+  create:
+    enabled: false
+    # Secret name, defaults to <fullname>-image-pull
+    name: ""
+    # Registry host that must match the image repository, e.g. ghcr.io or
+    # distribution.example.tld (docker.io for Docker Hub)
+    registry: ""
+    username: ""
+    password: ""
+
 # tinySupervisor HTTP API / healthcheck (TINYSUPERVISOR_HTTP_PORT).
 # The /health endpoint on this port is used for liveness/readiness probes.
 supervisor:

@@ -20,9 +20,57 @@ helm upgrade lore ./chart --namespace lore --values my-values.yaml
 > The `service.http/nntp/imap` ports must match the `hosting.*_port` values in
 > `config.yaml`.
 
+### Image
+
+In these values, you should set your image repository/tag. Check the "Publish the image" section in the root README.
+
+### Image pull secrets
+
+If the image lives in a private registry, give the pod credentials with
+`imagePullSecrets`. Two mechanisms are supported and can be combined — the
+resulting Secret names are merged into the Deployment's `imagePullSecrets`:
+
+**Use an existing Secret** (recommended — keeps credentials out of the values
+file). Create a `kubernetes.io/dockerconfigjson` Secret yourself and reference
+it by name:
+
+```bash
+kubectl create secret docker-registry registry-credentials \
+  --docker-server=distribution.example.tld \
+  --docker-username=user --docker-password=pass \
+  -n lore
+```
+
+```yaml
+imagePullSecrets:
+  existing:
+    - registry-credentials
+```
+
+**Let the chart create the Secret from values** (handy for testing; the
+credentials end up in your values file, so use SOPS/Sealed Secrets/External
+Secrets for anything real):
+
+```yaml
+imagePullSecrets:
+  create:
+    enabled: true
+    name: ""          # defaults to <fullname>-image-pull
+    registry: distribution.example.tld   # must match the image repository host
+    username: user
+    password: pass
+```
+
+The chart renders a `kubernetes.io/dockerconfigjson` Secret for that. `registry`,
+`username` and `password` are required when `create.enabled` is true. Note that
+this Secret is only attached to the controller Deployment; the optional Anubis
+Deployment (`anubis.enabled`) is not modified — add its credentials to the
+Anubis image registry separately if needed.
+
 ## Secrets
 
-The chart only references Secrets by name — it never creates them, so any
+The chart only references Secrets by name — it never creates them (the single
+exception is the optional `imagePullSecrets.create` Secret above), so any
 encryption method works (plain `kubectl`, SOPS, Sealed Secrets, External
 Secrets Operator, ...).
 

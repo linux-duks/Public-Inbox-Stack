@@ -35,6 +35,34 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}
 
 {{/*
+Name of the image pull Secret created by the chart (when
+imagePullSecrets.create.enabled is true).
+*/}}
+{{- define "public-inbox-stack.imagePullSecretName" -}}
+{{- $create := .Values.imagePullSecrets.create }}
+{{- default (printf "%s-image-pull" (include "public-inbox-stack.fullname" .)) $create.name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+imagePullSecrets list for a pod: the chart-created Secret (if enabled) plus
+any pre-existing Secret names from imagePullSecrets.existing. Renders nothing
+when empty.
+*/}}
+{{- define "public-inbox-stack.imagePullSecrets" -}}
+{{- $secrets := list }}
+{{- if .Values.imagePullSecrets.create.enabled }}
+{{- $secrets = append $secrets (dict "name" (include "public-inbox-stack.imagePullSecretName" .)) }}
+{{- end }}
+{{- range .Values.imagePullSecrets.existing }}
+{{- $secrets = append $secrets (dict "name" .) }}
+{{- end }}
+{{- with $secrets }}
+imagePullSecrets:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
 Selector labels for the main app
 */}}
 {{- define "public-inbox-stack.selectorLabels" -}}
