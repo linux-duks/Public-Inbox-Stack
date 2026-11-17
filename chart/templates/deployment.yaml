@@ -128,7 +128,7 @@ spec:
             server: {{ .Values.nfs.server }}
             path: {{ .Values.nfs.path }}/data
             readOnly: false
-          {{- else if .Values.pvc.enabled }}
+          {{- else if .Values.persistence.enabled }}
           persistentVolumeClaim:
             claimName: {{ include "public-inbox-stack.fullname" . }}-data-pvc
           {{- else }}
@@ -140,7 +140,7 @@ spec:
             server: {{ .Values.nfs.server }}
             path: {{ .Values.nfs.path }}/configs
             readOnly: false
-          {{- else if .Values.pvc.enabled }}
+          {{- else if .Values.persistence.enabled }}
           persistentVolumeClaim:
             claimName: {{ include "public-inbox-stack.fullname" . }}-config-pvc
           {{- else }}

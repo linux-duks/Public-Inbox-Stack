@@ -1,4 +1,4 @@
-{{- if and .Values.pvc.enabled (not .Values.nfs.enabled) }}
+{{- if and .Values.persistence.enabled (not .Values.nfs.enabled) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -7,12 +7,12 @@ metadata:
   labels:
     {{- include "public-inbox-stack.labels" . | nindent 4 }}
 spec:
-  storageClassName: {{ .Values.pvc.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.pvc.size }}
+      storage: {{ .Values.persistence.size }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -22,10 +22,10 @@ metadata:
   labels:
     {{- include "public-inbox-stack.labels" . | nindent 4 }}
 spec:
-  storageClassName: {{ .Values.pvc.storageClassName }}
+  storageClassName: {{ .Values.persistence.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 1GB
+      storage: 100Mi
 {{- end }}
