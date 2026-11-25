@@ -9,7 +9,7 @@ metadata:
 spec:
   storageClassName: {{ .Values.persistence.storageClassName }}
   accessModes:
-    - ReadWriteOnce
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
   resources:
     requests:
       storage: {{ .Values.persistence.size }}
@@ -24,7 +24,7 @@ metadata:
 spec:
   storageClassName: {{ .Values.persistence.storageClassName }}
   accessModes:
-    - ReadWriteOnce
+    {{- toYaml .Values.persistence.accessModes | nindent 4 }}
   resources:
     requests:
       storage: 100Mi

@@ -190,6 +190,11 @@ persistence:
   # size of the data volume. The configs volume will be created with 1GB
   size: 200Gi
   storageClassName: ceph
+  # Access modes for both chart-managed PVCs (data + configs). ReadWriteMany is
+  # the default and needs a storage class that supports it (cephfs, NFS, EFS,
+  # ...); use [ReadWriteOnce] for block storage (local-path, EBS, ...).
+  accessModes:
+    - ReadWriteMany
 nfs:
   enabled: false
   server: nfs.server.example

@@ -67,6 +67,30 @@ this Secret is only attached to the controller Deployment; the optional Anubis
 Deployment (`anubis.enabled`) is not modified — add its credentials to the
 Anubis image registry separately if needed.
 
+### Storage
+
+The chart creates two PVCs when `persistence.enabled` is true (and `nfs.enabled`
+is false): one for `/data` (`persistence.size`) and a 100Mi one for the
+configs. Both use `persistence.storageClassName` and default to
+**`ReadWriteMany`**, so one volume can be shared (multiple replicas, or other
+pods reading the archive):
+
+```yaml
+persistence:
+  enabled: true
+  size: 200Gi
+  storageClassName: ceph-filesystem
+  accessModes:
+    - ReadWriteMany
+```
+
+> `ReadWriteMany` requires a storage class that supports it (cephfs, NFS, EFS,
+> ...). On block storage (local-path, EBS, ...) set `accessModes: [ReadWriteOnce]`
+> instead, otherwise the claim stays `Pending`.
+
+To use an existing NFS export instead of PVCs, set `nfs.enabled: true` with
+`nfs.server` and `nfs.path` (the share needs `data/` and `configs/` folders).
+
 ### First run: disable probes
 
 A first install has to clone/mirror the upstream inboxes and build the initial
