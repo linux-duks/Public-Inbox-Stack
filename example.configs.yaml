@@ -31,18 +31,28 @@ hosting:
   imap_port: 8143
 
 indexing:
-  # Index level: basic (no full-text search), medium (no phrase search), full (default)
+  # Index level: basic (no full-text search), medium (no phrase search),
+  # full (default)
   level: full
 
+# Each entry mirrors one upstream public-inbox remote into its own subfolder
+# of paths.mirror (/data/mirror/<id>). Remove the list (or leave it empty) to
+# disable mirroring. `id` is required, must be unique and is used as the
+# directory name, so keep it to letters, digits, '.', '_' and '-'.
 mirroring:
-  enabled: true
-  upstream_host: https://lore.other-domain.tld
-  # seconds between grok-pull runs (scheduling handled by tinySupervisor)
-  interval: 7200
-  # index after each pull (replaces GROKMIRROR_MODE=indexed)
-  indexing: false
-  # run cross-inbox extindex after indexing/pulls
-  extindex: true
+  - id: lore.domain.tld
+    upstream_host: https://lore.domain.tld
+    # seconds between grok-pull runs (scheduling handled by tinySupervisor)
+    interval: 7200
+    # index this source after each pull (replaces GROKMIRROR_MODE=indexed)
+    indexing: false
+    # refresh the cross-inbox extindex after this source's pulls
+    extindex: true
+  - id: pi.domain2.tld
+    upstream_host: https://pi.domain2.tld
+    # interval/indexing/extindex are optional and default to
+    # 7200 / false / true; with several sources one shared extindex is enough
+    extindex: false
 
 imap:
   enabled: false
@@ -50,15 +60,17 @@ imap:
   inboxes:
     - id: list.name
       address: name.list.domain.tld
-      # credentials belong in .env as IMAP_INBOXES_0_URL (or here, not committed)
+      # credentials belong in .env as IMAP_INBOXES_0_URL
+      # (or here, not committed)
       url: imaps://user:pass@imap.server.tld:993/INBOX
 
 lei:
   enabled: false
   check_interval: 360 # minutes between lei up --all runs
   output_config: lei-output.pi.config
-  default_settings: &lei_default_settings
-    host: https://lore.kernel.org/all
+  # merged into every maildir below; set a key per maildir to override it
+  default_settings:
+    host: https://lore.domain.tld/all
     threads: true
     obfuscate: true
 
@@ -69,12 +81,12 @@ lei:
     #   host: https://another.lore.instance/all
     #   threads: false
     # "rust":
-    #   <<: *lei_default_settings
     #   query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'
 
 # Lei quick docs:
 #
-# "lei q" supports the same search prefixes used by HTTP(S) public-inbox instances:
+# "lei q" supports the same search prefixes used by HTTP(S) public-inbox
+# instances:
 #
 #   s:        match within Subject  e.g. s:"a quick brown fox"
 #   d:        match date-time range, git "approxidate" formats supported

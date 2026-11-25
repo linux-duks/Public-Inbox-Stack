@@ -181,7 +181,8 @@ secrets:
 
 Every `KEY=VALUE` in that file overrides the matching config path
 (`imap.inboxes.0.url` → `IMAP_INBOXES_0_URL`, `lei.maildirs.rust.query` →
-`LEI_MAILDIRS_RUST_QUERY`; list indices are numeric). Secrets can also be
+`LEI_MAILDIRS_RUST_QUERY`, `mirroring.0.upstream_host` →
+`MIRRORING_0_UPSTREAM_HOST`; list indices are numeric). Secrets can also be
 mounted as process env vars with `secrets.envFrom` / `secrets.env`, but the
 controller only reads overrides from the dotenv file.
 

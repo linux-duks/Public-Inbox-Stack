@@ -1,42 +1,51 @@
-"""Grokmirror scheduling task.
+"""Grokmirror scheduling tasks.
 
-Runs ``grok-pull`` as a one-shot job on an interval; tinySupervisor handles
-the scheduling (replacing grokmirror's own ``--continuous`` daemon mode).
+Runs ``grok-pull`` as a one-shot job per mirror source on an interval;
+tinySupervisor handles the scheduling (replacing grokmirror's own
+``--continuous`` daemon mode). Every source has its own rendered grokmirror
+config (``grokmirror-<id>.conf``) and its own toplevel directory
+(``<paths.mirror>/<id>``).
 """
 
-from tinysupervisor import CronJob, RecurrentJob, supervisor
+from tinysupervisor import CronJob, RecurrentJob, Supervisor
 
-from pistack_controller.config import Config
+from pistack_controller.config import Config, MirrorSource, grokmirror_conf_path
 from pistack_controller.indexer import index_cloned_repos, run_extindex
-from pistack_controller.render import GROKMIRROR_CONF
 
 
-def grokmirror_cronjob(config: Config) -> CronJob:
+def grokmirror_cronjob(source: MirrorSource) -> CronJob:
     return CronJob(
-        name="grokmirror",
-        interval=float(config.mirroring.interval),
-        command=f"grok-pull -v -c {GROKMIRROR_CONF}",
+        name=f"grokmirror_{source.id}",
+        interval=float(source.interval),
+        command=f"grok-pull -v -c {grokmirror_conf_path(source.id)}",
         depends=["init_folders"],
     )
 
 
-def register_grokmirror_tasks(supervisor: supervisor, config: Config):
-    supervisor.register(grokmirror_cronjob(config))
+def register_grokmirror_tasks(supervisor: Supervisor, config: Config):
+    """Register one pull (+ optional index) job per source, plus extindex."""
 
-    extindex_depends = ["grokmirror"]
+    extindex_depends: list[str] = []
 
-    if config.mirroring.indexing:
-        supervisor.register(
-            RecurrentJob(
-                name="index",
-                executable=lambda: index_cloned_repos(config),
-                depends=["grokmirror"],
+    for source in config.mirroring.sources:
+        pull_job = grokmirror_cronjob(source)
+        supervisor.register(pull_job)
+        source_depends = [pull_job.name]
+
+        if source.indexing:
+            index_job = RecurrentJob(
+                name=f"index_{source.id}",
+                executable=lambda src=source: index_cloned_repos(config, [src]),
+                depends=[pull_job.name],
             )
-        )
-        # also wait for internal indexing
-        extindex_depends.append("index")
+            supervisor.register(index_job)
+            # also wait for internal indexing
+            source_depends.append(index_job.name)
 
-    if config.mirroring.extindex:
+        if source.extindex:
+            extindex_depends.extend(source_depends)
+
+    if extindex_depends:
         supervisor.register(
             RecurrentJob(
                 name="grok_extindex",

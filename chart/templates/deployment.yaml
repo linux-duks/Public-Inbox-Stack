@@ -57,8 +57,8 @@ spec:
               value: /data/state
             - name: PI_CONFIG
               value: /configs/pi-config/config
-            - name: GROKMIRROR_CONF
-              value: /configs/grokmirror/grokmirror.conf
+            - name: GROKMIRROR_CONF_DIR
+              value: /configs/grokmirror
             - name: CONFIG_PATH
               value: /configs.yaml
             - name: TINYSUPERVISOR_HTTP_PORT

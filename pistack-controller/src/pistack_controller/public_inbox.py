@@ -43,9 +43,9 @@ def _netd_command(config: Config) -> str:
     return "public-inbox-netd " + " ".join(f"-l {listener}" for listener in listeners)
 
 
-def public_inbox_services(config: Config) -> list[Service]:
+def public_inbox_services(config: Config) -> list[Service | CronJob]:
     depends = ["ensure_inboxes"] if config.hosting.enabled else []
-    services: list[Service] = []
+    services: list[Service | CronJob] = []
 
     if config.imap.spamcheck_enabled:
         services.append(_service("spamd", SPAMD_COMMAND, depends))

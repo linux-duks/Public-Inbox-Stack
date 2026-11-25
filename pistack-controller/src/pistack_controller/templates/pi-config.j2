@@ -12,7 +12,7 @@
 [include]
 	path = {{ lei.output_config }}
 {% endif %}
-{% if mirroring.extindex %}
+{% if mirroring.extindex_enabled %}
 [extindex "all"]
 	topdir = {{ paths.extindex }}
 	url = https://{{ hosting.serve_host }}/all

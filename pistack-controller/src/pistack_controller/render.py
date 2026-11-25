@@ -9,6 +9,9 @@ rendered output is compared against ``base.config`` (the previous render) and
 only the delta is applied to the live config file. Runtime additions made by
 internal processes (e.g. ``public-inbox-init`` appending inbox sections) are
 preserved across restarts.
+
+Grokmirror gets one config file per mirror source
+(``grokmirror-<id>.conf``), each pointing at that source's own toplevel.
 """
 
 import os
@@ -17,7 +20,13 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
-from pistack_controller.config import Config, PI_CONFIG, GROKMIRROR_CONF
+from pistack_controller.config import (
+    Config,
+    MirrorSource,
+    PI_CONFIG,
+    GROKMIRROR_CONF_DIR,
+    grokmirror_conf_path,
+)
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
@@ -33,11 +42,11 @@ def _environment() -> Environment:
     )
 
 
-def render_grokmirror_conf(config: Config) -> str:
+def render_grokmirror_conf(config: Config, source: MirrorSource) -> str:
     return (
         _environment()
         .get_template("grokmirror.conf.j2")
-        .render(paths=config.paths, mirroring=config.mirroring)
+        .render(source=source, toplevel=source.mirror_dir(config.paths))
     )
 
 
@@ -55,11 +64,35 @@ def render_pi_config(config: Config) -> str:
     )
 
 
-def write_grokmirror_conf(config: Config) -> str:
-    os.makedirs(os.path.dirname(GROKMIRROR_CONF), exist_ok=True)
-    Path(GROKMIRROR_CONF).write_text(render_grokmirror_conf(config))
-    print(f"[render] Generated {GROKMIRROR_CONF}")
-    return GROKMIRROR_CONF
+def _ensure_dir(path: str) -> None:
+    """Create ``path`` (and parents), raising a clear error on failure."""
+    try:
+        os.makedirs(path, exist_ok=True)
+    except OSError as exc:
+        raise RuntimeError(f"Cannot create directory {path}: {exc}") from exc
+
+
+def write_grokmirror_confs(config: Config) -> list[str]:
+    """Render one grokmirror config per mirror source.
+
+    Stale ``grokmirror-*.conf`` files left behind by sources that were removed
+    from the configuration are deleted.
+    """
+    _ensure_dir(GROKMIRROR_CONF_DIR)
+
+    written: list[str] = []
+    for source in config.mirroring.sources:
+        path = grokmirror_conf_path(source.id)
+        Path(path).write_text(render_grokmirror_conf(config, source))
+        print(f"[render] Generated {path} (source '{source.id}')")
+        written.append(path)
+
+    for existing in sorted(Path(GROKMIRROR_CONF_DIR).glob("grokmirror-*.conf")):
+        if str(existing) not in written:
+            existing.unlink()
+            print(f"[render] Removed stale {existing}")
+
+    return written
 
 
 # -- base.config merge for the public-inbox config --------------------------
@@ -148,7 +181,7 @@ def sync_pi_config(config: Config) -> str:
     """Write the public-inbox config via a base.config merge."""
     fresh = render_pi_config(config)
     base_path = os.path.join(os.path.dirname(PI_CONFIG), "base.config")
-    os.makedirs(os.path.dirname(PI_CONFIG), exist_ok=True)
+    _ensure_dir(os.path.dirname(PI_CONFIG))
 
     base = Path(base_path).read_text() if os.path.isfile(base_path) else None
     live = Path(PI_CONFIG).read_text() if os.path.isfile(PI_CONFIG) else None
@@ -174,5 +207,5 @@ def sync_pi_config(config: Config) -> str:
 
 
 def render_all(config: Config) -> None:
-    write_grokmirror_conf(config)
+    write_grokmirror_confs(config)
     sync_pi_config(config)

@@ -20,8 +20,8 @@ Upstream (public-inbox.example.org, etc.)
 │ public-inbox-stack  (single container)               │
 │   pistack-controller  (tinySupervisor DAG)           │
 │     ├─ init_folders   (Job)                          │
-│     ├─ grokmirror     (CronJob -> /data/mirror)      │
-│     ├─ index/extindex (run_after, optional)          │
+│     ├─ grokmirror_<id> (CronJob -> /data/mirror/<id>)│
+│     ├─ index_<id>/extindex (run_after, optional)     │
 │     ├─ lei_init/lei_up (Job + CronJob -> /data/lei)  │
 │     └─ public-inbox-httpd/nntpd/imapd/watch/spamd    │
 │         (Service)                                    │
@@ -97,11 +97,14 @@ indexing:
   level: full            # basic | medium | full
 
 mirroring:
-  enabled: true
-  upstream_host: https://lore.other-domain.tld
-  interval: 7200         # seconds between grok-pull runs
-  indexing: false        # index after each pull
-  extindex: true         # update the cross-inbox index
+  # one entry per mirrored upstream; each is cloned into /data/mirror/<id>
+  - id: lore.domain.tld
+    upstream_host: https://lore.domain.tld
+    interval: 7200       # seconds between grok-pull runs
+    indexing: false      # index this source after each pull
+    extindex: true       # refresh the cross-inbox index after this source
+  - id: pi.domain2.tld
+    upstream_host: https://pi.domain2.tld
 
 imap:
   enabled: false
@@ -116,13 +119,28 @@ lei:
   check_interval: 360    # minutes between lei up --all runs
   output_config: lei-output.pi.config # will live in the PI_CONFIG folder
   default_settings:
-    host: https://lore.kernel.org/all
+    host: https://lore.domain.tld/all
     threads: true
     obfuscate: true
   maildirs:
     "rust":
       query: '(s:rust OR dfn:rust/*) AND rt:2.weeks.ago..'
 ```
+
+**Per-source `mirroring` keys** (the list replaces the old
+`mirroring.upstream_host` mapping — a non-empty list enables mirroring):
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `id` | yes | — | Unique name; also the directory name (`/data/mirror/<id>`) |
+| `upstream_host` | yes | — | Upstream public-inbox URL, e.g. `https://lore.domain.tld` |
+| `interval` | no | `7200` | Seconds between this source's `grok-pull` runs |
+| `indexing` | no | `false` | Index this source after each pull |
+| `extindex` | no | `true` | Refresh the cross-inbox extindex after this source's pulls |
+
+`id` must match `[A-Za-z0-9][A-Za-z0-9._-]*` (it becomes a directory name and
+part of the task names), and inbox names must be unique across all sources
+because served URLs stay flat (`https://<serve_host>/<inbox>`).
 
 ### Secrets from `.env`
 
@@ -133,11 +151,14 @@ UPPER_SNAKE_CASE of its dotted path (`.` → `_`, list indices are numeric):
 |-------------|---------|
 | `imap.inboxes.0.url` | `IMAP_INBOXES_0_URL` |
 | `lei.maildirs.rust.query` | `LEI_MAILDIRS_RUST_QUERY` |
+| `mirroring.0.upstream_host` | `MIRRORING_0_UPSTREAM_HOST` |
 | `hosting.http` | `HOSTING_HTTP` |
 
 ```bash
 # .env (gitignored) - keep credentials here, not in configs.yaml
 IMAP_INBOXES_0_URL=imaps://user:pass@imap.server.tld:993/INBOX
+# mirror sources are a list: index N selects the Nth `mirroring:` entry
+MIRRORING_0_UPSTREAM_HOST=https://lore.domain.tld
 ```
 
 `.env` values win over `configs.yaml` and are coerced to the type of the value
@@ -153,13 +174,24 @@ Mirroring, IMAP and lei use separate subfolders of a shared `/data` parent:
 
 | Domain | Path |
 |--------|------|
-| Mirror (grokmirror toplevel) | `/data/mirror` |
+| Mirror (grokmirror toplevel, one per source id) | `/data/mirror/<id>` |
 | IMAP watch inboxes | `/data/imap/<inbox-id>` |
 | Lei (base-dir) | `/data/lei` |
 | extindex (`all`, cross-inbox aggregate) | `/data/all` |
 
-> **Migration:** existing installs should move host `./maildirs/*` →
-> `./data/lei/` and `./data/<inbox>` → `./data/mirror/` or `./data/imap/`.
+Mirror sources are listed under `mirroring` in `configs.yaml`; every source
+mirrors into its own `<id>` subfolder, so inboxes from different remotes never
+collide on disk (`/data/mirror/lore.domain.tld/linux-input`, ...). Serving URLs
+stay flat (`https://<serve_host>/<inbox>`), so inbox names must be unique
+across all sources.
+
+> **Migration (single-source installs):** `mirroring` used to be a mapping with
+> a single `upstream_host`. It is now a list of named sources — replace
+> `mirroring.upstream_host` with one `- id:`/`upstream_host:` entry and move
+> `./data/mirror/<inbox>` to `./data/mirror/<id>/<inbox>` (or let the next pull
+> re-clone from scratch). Existing installs that also moved host
+> `./maildirs/*` → `./data/lei/` and `./data/<inbox>` →
+> `./data/mirror/` or `./data/imap/` should do that first.
 
 ## Makefile Targets
 
@@ -200,14 +232,14 @@ Kubernetes helpers live in `chart/Makefile`, next to the chart:
 
 ```bash
 cp example.configs.yaml configs.yaml
-# set mirroring.enabled: true, upstream_host, hosting.enabled: true
+# add one or more `mirroring:` sources (id + upstream_host), set hosting.enabled: true
 make run
 ```
 
 ### Hosting only (no mirroring)
 
 ```bash
-# set hosting.enabled: true, mirroring.enabled: false
+# set hosting.enabled: true, leave mirroring as an empty list (`mirroring: []`)
 # add inbox definitions under imap.inboxes or edit the rendered config
 make run
 ```
@@ -237,9 +269,16 @@ public-inbox V2 inboxes, generates `lei-output.pi.config`, then runs
 
 Runs `pistack-controller serve` — a tinySupervisor workflow:
 
-- **`init_folders`** (Job) — creates `/data/{mirror,imap,lei,all}` and the extindex description
-- **`grokmirror`** (CronJob) — `grok-pull` on `mirroring.interval`
-- **`index` / `extindex`** (Jobs, `run_after`) — index cloned repos / update extindex
+- **`init_folders`** (Job) — creates `/data/{mirror,imap,lei,all}`, every
+  `/data/mirror/<id>` source dir and the extindex description
+- **`grokmirror_<id>`** (CronJob, one per source) — `grok-pull` against that
+  source's own rendered config (`grokmirror-<id>.conf`) on its
+  `mirroring[].interval`, into `/data/mirror/<id>`
+- **`index_<id>`** (RecurrentJob, one per source with `indexing: true`) — index
+  only that source's inboxes
+- **`grok_extindex`** (RecurrentJob) — update the cross-inbox extindex after the
+  pulls of every source that has `extindex: true`
+- **`extindex_cr`** (CronJob) — periodic extindex refresh under hosting
 - **`lei_init`** (Job) + **`lei_up`** (CronJob) — saved searches + periodic updates
 - **`ensure_inboxes`** (Job) — reinitialize missing inbox dirs from the config
 - **`public-inbox-netd`** (Service) — single multi-protocol daemon serving
@@ -359,9 +398,9 @@ Run `cp example.configs.yaml configs.yaml` and edit it.
 
 ### No v2 inboxes found
 
-The indexer scans `/data/mirror` for directories with `git/N.git` structure. If
-grokmirror hasn't finished cloning yet, wait for the next pull cycle or run
-`make index` manually.
+The indexer scans every source toplevel (`/data/mirror/<id>`) for directories
+with `git/N.git` structure. If grokmirror hasn't finished cloning yet, wait for
+the next pull cycle or run `make index` manually.
 
 ### Container permission errors
 
@@ -398,6 +437,8 @@ public-inbox config that doesn't already have it.
 cd pistack-controller
 uv venv && uv pip install .
 .venv/bin/pistack-controller --help
+# unit tests (stdlib unittest, no extra dependencies)
+uv run python -m unittest discover -s tests
 ```
 
 ## TODO

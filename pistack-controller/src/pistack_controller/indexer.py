@@ -12,7 +12,7 @@ import subprocess
 import time
 import urllib.request
 
-from pistack_controller.config import Config, PI_CONFIG
+from pistack_controller.config import Config, MirrorSource, PI_CONFIG
 
 GROKMIRROR_UA = "grokmirror/2.1.0"
 HTTP_MINIMUM_INTERVAL = 15.0
@@ -132,9 +132,10 @@ def fetch_remote_config(inbox_name: str, origin: str) -> tuple[str, str]:
     return " ".join(addresses), (description[0] if description else "")
 
 
-def init_inbox(config: Config, inbox_name: str, origin: str) -> int:
-    """Initialize/index a single inbox. Returns 0=ok, 1=failed, 2=skipped."""
-    inbox_dir = os.path.join(config.paths.mirror, inbox_name)
+def init_inbox(config: Config, source: MirrorSource, inbox_name: str) -> int:
+    """Init/index one inbox of ``source``. Returns 0=ok, 1=failed, 2=skipped."""
+    inbox_dir = os.path.join(source.mirror_dir(config.paths), inbox_name)
+    origin = source.origin
     pi_config = PI_CONFIG
     env = pi_env()
 
@@ -186,22 +187,36 @@ def init_inbox(config: Config, inbox_name: str, origin: str) -> int:
     return 0
 
 
-def index_cloned_repos(config: Config) -> int:
-    """Index all cloned v2 inboxes under paths.mirror. Returns exit code."""
-    origin = config.mirroring.upstream_host.rstrip("/")
-    print(f"[indexer] Scanning for v2 inboxes in {config.paths.mirror}")
-    inboxes = find_v2_inboxes(config.paths.mirror)
-    if not inboxes:
-        print("[indexer] No v2 inboxes found")
+def index_cloned_repos(
+    config: Config, sources: list[MirrorSource] | None = None
+) -> int:
+    """Index cloned v2 inboxes for the given sources (default: all).
+
+    Each source is scanned under its own toplevel
+    (``<paths.mirror>/<source id>``) and inboxes are initialized with that
+    source's upstream host as the origin. Returns an exit code.
+    """
+    selected = list(config.mirroring.sources if sources is None else sources)
+    if not selected:
+        print("[indexer] No mirroring sources configured")
         return 0
 
     counts: dict[int, int] = {0: 0, 1: 0, 2: 0}
-    for inbox_name in inboxes:
-        rc = init_inbox(config, inbox_name, origin)
-        counts[rc] = counts.get(rc, 0) + 1
+    total = 0
+    for source in selected:
+        topdir = source.mirror_dir(config.paths)
+        print(f"[indexer] Scanning for v2 inboxes in {topdir} (source '{source.id}')")
+        inboxes = find_v2_inboxes(topdir)
+        if not inboxes:
+            print(f"[indexer] No v2 inboxes found for source '{source.id}'")
+            continue
+        total += len(inboxes)
+        for inbox_name in inboxes:
+            rc = init_inbox(config, source, inbox_name)
+            counts[rc] = counts.get(rc, 0) + 1
 
     print(
-        f"[indexer] Summary: {len(inboxes)} inboxes, "
+        f"[indexer] Summary: {total} inboxes, "
         f"{counts[0]} initialized, {counts[2]} skipped, {counts[1]} failed"
     )
     return 0 if counts[1] == 0 else 1

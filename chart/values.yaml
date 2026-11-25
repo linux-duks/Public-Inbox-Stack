@@ -272,14 +272,20 @@ config:
       level: full
 
     mirroring:
-      enabled: true
-      upstream_host: https://lore.other-domain.tld
-      # seconds between grok-pull runs (scheduling handled by tinySupervisor)
-      interval: 7200
-      # index after each pull (replaces GROKMIRROR_MODE=indexed)
-      indexing: false
-      # run cross-inbox extindex after indexing/pulls
-      extindex: true
+      # one entry per mirrored upstream public-inbox remote; each source is
+      # cloned into /data/mirror/<id>. Remove the list or leave it empty
+      # (`mirroring: []`) to disable mirroring.
+      # - id: lore.domain.tld
+      #   upstream_host: https://lore.domain.tld
+      #   # seconds between grok-pull runs (scheduling handled by tinySupervisor)
+      #   interval: 7200
+      #   # index this source after each pull (replaces GROKMIRROR_MODE=indexed)
+      #   indexing: false
+      #   # refresh the cross-inbox extindex after this source's pulls
+      #   extindex: true
+      # - id: lore.domain2.tld
+      #   upstream_host: https://lore.domain2.tld
+      #   extindex: false
 
     imap:
       enabled: false

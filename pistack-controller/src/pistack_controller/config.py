@@ -12,15 +12,32 @@ type of the value they override.
 """
 
 import os
+import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, Iterator
+from typing import Any
 
 import yaml
 
-GROKMIRROR_CONF = os.environ.get(
-    "GROKMIRROR_CONF", "/configs/grokmirror/grokmirror.conf"
+# Legacy single-file location, kept so existing deployments (and the
+# GROKMIRROR_CONF environment variable used by older compose/chart releases)
+# still resolve to the same directory.
+GROKMIRROR_CONF = os.environ.get("GROKMIRROR_CONF", "")
+GROKMIRROR_CONF_DIR = os.environ.get(
+    "GROKMIRROR_CONF_DIR",
+    os.path.dirname(GROKMIRROR_CONF) if GROKMIRROR_CONF else "/configs/grokmirror",
 )
 PI_CONFIG = os.environ.get("PI_CONFIG", "/configs/pi-config/config")
+
+# A mirror source id becomes both a directory name (/data/mirror/<id>) and a
+# tinySupervisor task-name component, so it must be a safe single path
+# component.
+MIRROR_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def grokmirror_conf_path(source_id: str) -> str:
+    """Path of the rendered grokmirror config for one mirror source."""
+    return os.path.join(GROKMIRROR_CONF_DIR, f"grokmirror-{source_id}.conf")
 
 
 class ConfigError(Exception):
@@ -47,13 +64,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "imap_port": 8143,
     },
     "indexing": {"level": "full"},
-    "mirroring": {
-        "enabled": False,
-        "upstream_host": "",
-        "interval": 7200,
-        "indexing": False,
-        "extindex": True,
-    },
+    "mirroring": [],
     "imap": {"enabled": False, "spamcheck_enabled": False, "inboxes": []},
     "lei": {
         "enabled": False,
@@ -88,7 +99,7 @@ class Paths:
     extindex: str = "/data/all"
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Paths":
+    def from_dict(cls, data: dict | None) -> "Paths":
         return cls(
             **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
         )
@@ -107,7 +118,7 @@ class Hosting:
     imap_port: int = 8143
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Hosting":
+    def from_dict(cls, data: dict | None) -> "Hosting":
         return cls(
             **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
         )
@@ -118,25 +129,129 @@ class Indexing:
     level: str = "full"
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Indexing":
+    def from_dict(cls, data: dict | None) -> "Indexing":
         return cls(
             **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
         )
 
 
 @dataclass
-class Mirroring:
-    enabled: bool = False
-    upstream_host: str = ""
-    interval: int = 7200
+class MirrorSource:
+    """One upstream public-inbox remote mirrored into ``<mirror>/<id>``."""
+
+    id: str
+    upstream_host: str
+    interval: float = 7200
     indexing: bool = False
     extindex: bool = True
 
+    @property
+    def origin(self) -> str:
+        """Upstream base URL without a trailing slash."""
+        return self.upstream_host.rstrip("/")
+
+    def mirror_dir(self, paths: "Paths") -> str:
+        return os.path.join(paths.mirror, self.id)
+
     @classmethod
-    def from_dict(cls, data: dict) -> "Mirroring":
+    def from_dict(cls, data: Any, label: str = "mirroring entry") -> "MirrorSource":
+        if not isinstance(data, dict):
+            raise ConfigError(
+                f"Invalid {label}: expected a mapping with 'id' and "
+                f"'upstream_host', got {type(data).__name__}"
+            )
+
+        source_id = str(data.get("id") or "").strip()
+        upstream_host = str(data.get("upstream_host") or "").strip()
+
+        if not source_id:
+            raise ConfigError(f"Invalid {label}: 'id' is required")
+        if not MIRROR_ID_RE.match(source_id):
+            raise ConfigError(
+                f"Invalid {label} id {source_id!r}: must match "
+                f"{MIRROR_ID_RE.pattern} (letters, digits, '.', '_' and '-', "
+                f"starting with a letter or digit)"
+            )
+        if not upstream_host:
+            raise ConfigError(
+                f"Invalid {label} {source_id!r}: 'upstream_host' is required"
+            )
+
+        try:
+            interval = float(data.get("interval", 7200))
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(
+                f"Invalid {label} {source_id!r}: 'interval' must be a number"
+            ) from exc
+
         return cls(
-            **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
+            id=source_id,
+            upstream_host=upstream_host,
+            interval=interval,
+            indexing=_to_bool(data.get("indexing", False)),
+            extindex=_to_bool(data.get("extindex", True)),
         )
+
+
+@dataclass
+class Mirroring:
+    """The list of mirror sources (empty means mirroring is disabled)."""
+
+    sources: list[MirrorSource] = field(default_factory=list)
+
+    @property
+    def enabled(self) -> bool:
+        return bool(self.sources)
+
+    @property
+    def extindex_enabled(self) -> bool:
+        """True when at least one source wants the cross-inbox extindex."""
+        return any(source.extindex for source in self.sources)
+
+    def __iter__(self) -> Iterator[MirrorSource]:
+        return iter(self.sources)
+
+    def __len__(self) -> int:
+        return len(self.sources)
+
+    def __getitem__(self, index: int) -> MirrorSource:
+        return self.sources[index]
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "Mirroring":
+        if data is None:
+            return cls()
+        if isinstance(data, dict):
+            if not data:
+                return cls()
+            raise ConfigError(
+                "'mirroring' is now a list of named sources, not a mapping. "
+                "Replace:\n"
+                "  mirroring:\n"
+                "    enabled: true\n"
+                "    upstream_host: https://lore.example.org\n"
+                "with:\n"
+                "  mirroring:\n"
+                "    - id: lore.example.org\n"
+                "      upstream_host: https://lore.example.org\n"
+                "(interval/indexing/extindex are per-source; mirrored data now "
+                "lives in data/mirror/<id>/)"
+            )
+        if not isinstance(data, list):
+            raise ConfigError(
+                "Invalid 'mirroring': expected a list of sources, got "
+                f"{type(data).__name__}"
+            )
+
+        sources: list[MirrorSource] = []
+        seen: set[str] = set()
+        for index, item in enumerate(data):
+            source = MirrorSource.from_dict(item, f"mirroring[{index}]")
+            if source.id in seen:
+                raise ConfigError(f"Duplicate mirroring id {source.id!r}")
+            seen.add(source.id)
+            sources.append(source)
+        return cls(sources=sources)
 
 
 @dataclass
@@ -146,7 +261,7 @@ class ImapInbox:
     url: str = ""
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ImapInbox":
+    def from_dict(cls, data: dict | None) -> "ImapInbox":
         return cls(
             **{k: v for k, v in (data or {}).items() if k in cls.__dataclass_fields__}
         )
@@ -159,7 +274,7 @@ class Imap:
     inboxes: list[ImapInbox] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Imap":
+    def from_dict(cls, data: dict | None) -> "Imap":
         data = data or {}
         inboxes = [ImapInbox.from_dict(x) for x in data.get("inboxes", [])]
         return cls(
@@ -188,7 +303,7 @@ class Lei:
     maildirs: list[LeiMaildir] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Lei":
+    def from_dict(cls, data: dict | None) -> "Lei":
         data = data or {}
         defaults = dict(data.get("default_settings") or {})
         maildirs: list[LeiMaildir] = []
@@ -225,7 +340,8 @@ class Config:
     lei: Lei = field(default_factory=Lei)
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Config":
+    def from_dict(cls, data: dict | None) -> "Config":
+        data = data or {}
         return cls(
             paths=Paths.from_dict(data.get("paths")),
             hosting=Hosting.from_dict(data.get("hosting")),

@@ -25,14 +25,23 @@ from pistack_controller.purge import purge_indexing
 
 
 def init_folders(config: Config) -> int:
-    """Create the /data subfolders and the extindex description file."""
-    for path in (
+    """Create the /data subfolders, per-source mirror dirs and the extindex
+    description file."""
+    directories = [
         config.paths.mirror,
         config.paths.imap,
         config.paths.lei,
         config.paths.extindex,
-    ):
-        os.makedirs(path, exist_ok=True)
+    ]
+    directories.extend(
+        source.mirror_dir(config.paths) for source in config.mirroring.sources
+    )
+    for path in directories:
+        try:
+            os.makedirs(path, exist_ok=True)
+        except OSError as exc:
+            print(f"[init] Cannot create {path}: {exc}", file=sys.stderr)
+            return 1
     description_file = os.path.join(config.paths.extindex, "description")
     if not os.path.isfile(description_file):
         with open(description_file, "w") as handle:
@@ -84,7 +93,7 @@ def cmd_index(config: Config) -> int:
     rc = index_cloned_repos(config)
     if rc != 0:
         return rc
-    if config.mirroring.extindex:
+    if config.mirroring.extindex_enabled:
         return run_extindex(config)
     return 0
 

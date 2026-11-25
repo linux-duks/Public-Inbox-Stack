@@ -30,7 +30,7 @@ services:
       - XDG_DATA_HOME=/data/state # used by lei
       - XDG_CONFIG_HOME=/data/state # used by lei
       - PI_CONFIG=/configs/pi-configs/config
-      - GROKMIRROR_CONF=/configs/grokmirror/grokmirror.conf
+      - GROKMIRROR_CONF_DIR=/configs/grokmirror
       - CONFIG_PATH=/configs.yaml
       - TINYSUPERVISOR_HTTP_PORT=${TINYSUPERVISOR_HTTP_PORT:-8081}
       - TINYSUPERVISOR_VERBOSITY=${TINYSUPERVISOR_VERBOSITY:-info}

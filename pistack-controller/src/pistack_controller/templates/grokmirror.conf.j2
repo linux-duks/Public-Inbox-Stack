@@ -2,7 +2,7 @@
 # Scheduling is handled by tinySupervisor; refresh is unused in one-shot mode.
 
 [core]
-toplevel = {{ paths.mirror }}
+toplevel = {{ toplevel }}
 manifest = ${toplevel}/manifest.js.gz
 log = ${toplevel}/log
 loglevel = info
@@ -15,7 +15,7 @@ fetch_objstore = no
 check_export_ok = no
 
 [remote]
-site = {{ mirroring.upstream_host }}
+site = {{ source.origin }}
 manifest = ${site}/manifest.js.gz
 
 [pull]
