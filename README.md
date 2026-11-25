@@ -141,7 +141,11 @@ IMAP_INBOXES_0_URL=imaps://user:pass@imap.server.tld:993/INBOX
 ```
 
 `.env` values win over `configs.yaml` and are coerced to the type of the value
-they override.
+they override. The override only applies to keys that already exist in
+`configs.yaml` (keep `url: ""` as the placeholder).
+
+On Kubernetes the same overrides are supplied by the Secret mounted into the
+pod — `make -C chart secrets/create` (see [Kubernetes](#kubernetes-helm-chart)).
 
 ### Data layout
 
@@ -180,6 +184,15 @@ Mirroring, IMAP and lei use separate subfolders of a shared `/data` parent:
 | `make purge` | Purge public-inbox indexing data (preserves git clones) |
 | `make obfuscate` | Add `obfuscate = true` to all inbox configs missing it |
 | `make help` | Show all available targets |
+
+### Kubernetes
+
+Kubernetes helpers live in `chart/Makefile`, next to the chart:
+
+| Target | Description |
+|--------|-------------|
+| `make -C chart secrets/create` | Create/update the dotenv Secret (`public-inbox-secrets`) holding the IMAP inbox URL; prompts for it unless `IMAP_URL` is set. Overrides: `NAMESPACE`, `SECRET`, `SECRETS_ENV_FILE`, `IMAP_KEY`, `KUBECTL` |
+| `make -C chart help` | Show the chart targets |
 
 ## Workflows
 
@@ -297,19 +310,30 @@ The image is tagged with the current git commit and `latest`.
 
 ### Install
 
+Credentials never belong in the values file. Create the dotenv Secret the chart
+mounts as `ENV_PATH` first (it prompts for the URL and keeps it in the
+gitignored `.env`):
+
+```bash
+make -C chart secrets/create NAMESPACE=lore
+```
+
+Then install:
+
 ```bash
 helm install lore ./chart --namespace lore --create-namespace --values my-values.yaml
 ```
 
-Copy `chart/values.yaml`, set `image.repository` to the registry you pushed to,
-edit the config (protocols, serve host, mirroring, imap, lei) and upgrade:
+In your values `config.yaml` block, leave the credential key empty (`url: ""`)
+— the Secret supplies it as `IMAP_INBOXES_0_URL`. Copy `chart/values.yaml`, set
+`image.repository` to the registry you pushed to, edit the config (protocols,
+serve host, mirroring, imap, lei) and upgrade:
 
 ```bash
 helm upgrade lore ./chart --namespace lore --values my-values.yaml
 ```
 
-See `chart/README.md` for details, including mounting IMAP credentials as a
-Kubernetes Secret.
+See `chart/README.md` for details, including the full IMAP credentials flow.
 
 ## Troubleshooting
 
