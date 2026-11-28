@@ -10,7 +10,9 @@ DEV_CONTROLLER = uv run --project /pistack-controller pistack-controller
 PROXY_COMPOSE = -f proxy.compose.yaml
 
 .PHONY: run watch stop logs build rebuild dev dev-watch publish index purge obfuscate render proxy-config proxy-config-dry-run help
-.PHONY: integration-test integration-test-smoke integration-test-clean
+.PHONY: integration-test integration-test-smoke integration-test-baseline \
+	integration-test-incremental integration-test-concurrency \
+	integration-test-clean
 
 ##@ Lifecycle
 
@@ -126,11 +128,20 @@ dev-obfuscate: ## Add obfuscate = true to all publicinbox sections (dev)
 
 ##@ Tests
 
-integration-test: ## Mirror + index 360 generated lists end to end (docker compose or podman-compose)
+integration-test: ## Baseline + incremental + concurrency scenarios (docker/podman)
 	$(MAKE) -C tests/integration integration-test
 
-integration-test-smoke: ## Fast integration run with 20 generated lists
+integration-test-smoke: ## Same scenarios at a small scale (fast)
 	$(MAKE) -C tests/integration integration-test-smoke
+
+integration-test-baseline: ## Mirror + index N generated lists end to end
+	$(MAKE) -C tests/integration integration-test-baseline
+
+integration-test-incremental: ## New lists/messages picked up by a second cycle
+	$(MAKE) -C tests/integration integration-test-incremental
+
+integration-test-concurrency: ## grok-pull overlapping an index/extindex run
+	$(MAKE) -C tests/integration integration-test-concurrency
 
 integration-test-clean: ## Remove integration-test containers and state
 	$(MAKE) -C tests/integration integration-test-clean

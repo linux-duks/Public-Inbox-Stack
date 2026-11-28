@@ -31,8 +31,7 @@ services:
       MESSAGES_PER_LIST: "${MESSAGES_PER_LIST:-3}"
       LISTEN_PORT: "8080"
     volumes:
-      - ./seed/entrypoint.sh:/seed/entrypoint.sh:ro,z
-      - ./seed/generate_lists.pl:/seed/generate_lists.pl:ro,z
+      - ./seed:/seed:ro,z
       - ${ITEST_STATE:-./.state}/upstream:/data:z
     command: ["bash", "/seed/entrypoint.sh"]
     healthcheck:

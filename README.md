@@ -450,17 +450,27 @@ cd pistack-controller
 uv run python -m unittest discover -s tests
 ```
 
-End-to-end integration test for mirroring + indexing: it generates a fake
-upstream with a large number of public-inbox lists, mirrors it with the real
-container image and asserts every list is indexed and served over HTTP.
+End-to-end integration tests for mirroring + indexing: they generate a fake
+upstream with public-inbox lists, mirror it with the real container image and
+assert the result is indexed and served. Three scenarios cover the pipeline:
+
+| Scenario | What it checks |
+| --- | --- |
+| `baseline` | every list is mirrored, indexed, configured and served |
+| `incremental` | new lists **and** new messages in existing lists are picked up by a second pull/index cycle, and the mirror stays ref-consistent |
+| `concurrency` | a grok-pull running while an index/extindex pass runs does not corrupt the mirror or the served instance |
 
 ```bash
-make integration-test-smoke   # 20 lists, fast
-make integration-test         # 360 lists (production-like)
-make integration-test-clean   # remove containers and test state
+make integration-test-smoke        # all three scenarios, small scale (fast)
+make integration-test              # all three scenarios, large scale
+make integration-test-baseline     # one scenario at a time
+make integration-test-incremental
+make integration-test-concurrency
+make integration-test-clean        # remove containers and test state
 ```
 
-See [`tests/integration/README.md`](tests/integration/README.md) for details.
+See [`tests/integration/README.md`](tests/integration/README.md) for details and
+scale knobs.
 
 ## TODO
 

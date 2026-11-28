@@ -10,6 +10,7 @@ both are pointed at a temporary directory *before* the package is imported.
 
 import os
 import signal
+import subprocess
 import sys
 import tempfile
 import textwrap
@@ -32,6 +33,22 @@ from pistack_controller.purge import purge_indexing  # noqa: E402
 #: argv shapes used by the /proc fixtures in NetdReloadTests.
 NETD_ARGV = ("/usr/local/bin/public-inbox-netd", "-l", "http://0.0.0.0:8080")
 PYTHON_ARGV = ("python", "-m", "pistack_controller")
+
+
+def record_cmds(cmds: list[list[str]], returncode: int = 0):
+    """A ``run_cmd`` stand-in that records commands and returns ``returncode``."""
+
+    class Result:
+        def __init__(self) -> None:
+            self.returncode = returncode
+            self.stdout = ""
+            self.stderr = "fatal: Needed a single revision" if returncode else ""
+
+    def run(cmd, env=None):
+        cmds.append(cmd)
+        return Result()
+
+    return run
 
 
 def mirroring_config(sources: str, data: Path) -> str:
@@ -265,6 +282,7 @@ class IndexerTests(MirroringTestCase):
         Path(inbox_dir, "git", "0.git").mkdir(parents=True)
         return inbox_dir
 
+
     def test_scoped_indexing_uses_the_source_origin(self) -> None:
         config = self.load(
             """\
@@ -364,8 +382,8 @@ class IndexerTests(MirroringTestCase):
             self.assertEqual(indexer.index_cloned_repos(config), 0)
             self.assertEqual(calls, ["reload"])
 
-            # Already in PI_CONFIG and already v2-initialized: skipped, so the
-            # config is untouched and no reload is needed.
+            # Already in PI_CONFIG and already v2-initialized: re-indexed, so
+            # the config is untouched and no netd reload is needed.
             calls.clear()
             inbox_dir = Path(config.paths.mirror, "one.example", "list")
             Path(inbox_dir, "all.git").mkdir()
@@ -375,6 +393,104 @@ class IndexerTests(MirroringTestCase):
             ):
                 self.assertEqual(indexer.index_cloned_repos(config), 0)
             self.assertEqual(calls, [])
+
+    def test_initialized_inbox_is_reindexed_not_skipped(self) -> None:
+        """New messages in an existing list must reach the served index."""
+        config = self.load(
+            "- id: one.example\n  upstream_host: https://one.example\n"
+        )
+        inbox_dir = self.make_inbox(config, "one.example", "list")
+        Path(inbox_dir, "all.git").mkdir()
+        Path(inbox_dir, "msgmap.sqlite3").write_text("x")
+
+        cmds: list[list[str]] = []
+
+        with (
+            mock.patch.object(indexer, "run_cmd", record_cmds(cmds)),
+            mock.patch.object(indexer, "git_config_get", lambda *a: str(inbox_dir)),
+        ):
+            self.assertEqual(indexer.index_cloned_repos(config), 0)
+
+        inbox_cmds = [cmd[0] for cmd in cmds if cmd[0].startswith("public-inbox-")]
+        self.assertEqual(inbox_cmds, ["public-inbox-index"])
+        self.assertEqual(cmds[-1][-1], str(inbox_dir))
+
+    def test_inbox_locked_by_a_pull_is_deferred(self) -> None:
+        """A concurrent grok-pull must not be indexed mid-fetch."""
+        config = self.load(
+            "- id: one.example\n  upstream_host: https://one.example\n"
+        )
+        self.make_inbox(config, "one.example", "list")
+
+        cmds: list[list[str]] = []
+
+        with (
+            mock.patch.object(indexer, "run_cmd", record_cmds(cmds)),
+            mock.patch.object(indexer, "git_config_get", lambda *a: None),
+            mock.patch.object(indexer, "repo_locked_by_pull", lambda repo: True),
+            mock.patch.object(
+                indexer, "reload_netd", lambda *a, **kw: self.fail("unexpected reload")
+            ),
+        ):
+            # Deferred inboxes are neither initialized nor counted as failures.
+            self.assertEqual(indexer.index_cloned_repos(config), 0)
+        self.assertEqual(cmds, [])
+
+    def test_inbox_without_head_is_deferred(self) -> None:
+        """A half-cloned epoch repo (no HEAD yet) is left for the next pass."""
+        config = self.load(
+            "- id: one.example\n  upstream_host: https://one.example\n"
+        )
+        self.make_inbox(config, "one.example", "list")
+
+        cmds: list[list[str]] = []
+
+        with (
+            mock.patch.object(indexer, "run_cmd", record_cmds(cmds, returncode=1)),
+            mock.patch.object(indexer, "git_config_get", lambda *a: None),
+        ):
+            self.assertEqual(indexer.index_cloned_repos(config), 0)
+        self.assertEqual([cmd[0] for cmd in cmds], ["git"])
+        self.assertEqual(cmds[0][-2:], ["--verify", "HEAD"])
+
+    def test_repo_locked_by_pull_detects_another_process(self) -> None:
+        """The probe must interlock with grok-pull's fcntl record lock."""
+        repo = str(self.dir / "repo.git")
+        Path(repo).mkdir()
+
+        holder = subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                "import fcntl, os, sys, time\n"
+                "fh = open(sys.argv[1], 'w')\n"
+                "fcntl.lockf(fh, fcntl.LOCK_EX)\n"
+                "print('locked', flush=True)\n"
+                "time.sleep(30)\n",
+                indexer.repo_lock_path(repo),
+            ],
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        try:
+            assert holder.stdout is not None
+            self.assertEqual(holder.stdout.readline().strip(), "locked")
+            self.assertTrue(indexer.repo_locked_by_pull(repo))
+        finally:
+            holder.kill()
+            holder.wait(timeout=10)
+            if holder.stdout is not None:
+                holder.stdout.close()
+
+        # Once the holder is gone the repo is free again.
+        self.assertFalse(indexer.repo_locked_by_pull(repo))
+
+    def test_repo_locked_by_pull_without_a_lock_file(self) -> None:
+        repo = str(self.dir / "never-pulled.git")
+        Path(repo).mkdir()
+        self.assertFalse(indexer.repo_locked_by_pull(repo))
+        # Probing must not litter the mirror with lock files.
+        self.assertFalse(os.path.exists(indexer.repo_lock_path(repo)))
 
     def test_run_extindex_reloads_netd(self) -> None:
         config = self.load(
