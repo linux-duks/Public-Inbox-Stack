@@ -1,6 +1,10 @@
+# HTTPS on purpose: CI (GitHub Actions, GitLab CI) must clone these without
+# SSH keys. Developers who push to the submodules can keep the SSH remote
+# locally, e.g.
+#   git config submodule.grokmirror.url git@gitlab.com:ccsl-usp/codev/grokmirror.git
 [submodule "grokmirror"]
 	path = grokmirror
-	url = git@gitlab.com:ccsl-usp/codev/grokmirror.git
+	url = https://gitlab.com/ccsl-usp/codev/grokmirror.git
 [submodule "public-inbox"]
 	path = public-inbox
-	url = git@gitlab.com:ccsl-usp/codev/public-inbox.git
+	url = https://gitlab.com/ccsl-usp/codev/public-inbox.git

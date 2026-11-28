@@ -25,14 +25,9 @@ jobs:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
+          # .gitmodules uses https:// (public GitLab projects), so no deploy key
+          # or url.insteadOf rewrite is needed to fetch the submodules.
           submodules: true
-
-      - name: Use HTTPS for GitLab submodules
-        # .gitmodules points at git@gitlab.com:, which needs a deploy key in CI.
-        run: |
-          git config --global url."https://gitlab.com/".insteadOf git@gitlab.com:
-          git submodule sync --recursive
-          git submodule update --init --recursive
 
       - name: Compose version
         run: docker compose version
