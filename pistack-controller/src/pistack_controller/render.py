@@ -21,10 +21,10 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
 from pistack_controller.config import (
+    GROKMIRROR_CONF_DIR,
+    PI_CONFIG,
     Config,
     MirrorSource,
-    PI_CONFIG,
-    GROKMIRROR_CONF_DIR,
     grokmirror_conf_path,
 )
 
@@ -157,8 +157,6 @@ def merge_config(fresh: str, base: str | None, live: str | None) -> tuple[str, b
     fresh_preamble, fresh_sections, fresh_order = _parse_sections(fresh)
     _, base_sections, _ = _parse_sections(base) if base else ("", {}, [])
     _, live_sections, live_order = _parse_sections(live)
-
-    managed = set(base_sections) | set(fresh_sections)
 
     result: list[str] = []
     for header in live_order:

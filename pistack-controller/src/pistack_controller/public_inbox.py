@@ -6,11 +6,11 @@ Port of ``scripts/start-public-inbox.sh``. The multi-protocol
 ``Service`` (kept alive, autorestarted), replacing the old PID-juggling loop.
 """
 
-from tinysupervisor import Job, CronJob, Service
+from tinysupervisor import CronJob, Job, Service
 
 from pistack_controller.config import Config
-from pistack_controller.reinit import ensure_inboxes
 from pistack_controller.indexer import run_extindex
+from pistack_controller.reinit import ensure_inboxes
 
 SPAMD_COMMAND = (
     "spamd --username debian-spamd -l --nouser-config "
@@ -76,10 +76,10 @@ def public_inbox_services(config: Config) -> list[Service | CronJob]:
 
 
 def ensure_inboxes_job(
-    config: Config, additional_depends: list[str] | None = []
+    config: Config, additional_depends: list[str] | None = None
 ) -> Job:
     return Job(
         name="ensure_inboxes",
         executable=lambda: ensure_inboxes(config),
-        depends=additional_depends,
+        depends=additional_depends or [],
     )

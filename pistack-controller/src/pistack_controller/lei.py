@@ -6,12 +6,12 @@ the recurring ``lei up --all`` is a CronJob scheduled by tinySupervisor.
 """
 
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 from tinysupervisor import CronJob, Job
 
-from pistack_controller.config import Config, PI_CONFIG
+from pistack_controller.config import PI_CONFIG, Config
 
 
 def lei_init(config: Config) -> int:

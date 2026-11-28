@@ -15,7 +15,7 @@ import sys
 from tinysupervisor import Job, init_supervisor
 
 from pistack_controller import render
-from pistack_controller.config import Config, ConfigError, load_config, PI_CONFIG
+from pistack_controller.config import PI_CONFIG, Config, ConfigError, load_config
 from pistack_controller.grokmirror import register_grokmirror_tasks
 from pistack_controller.indexer import index_cloned_repos, run_extindex
 from pistack_controller.lei import lei_init_job, lei_up_cronjob

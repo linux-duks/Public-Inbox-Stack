@@ -184,7 +184,7 @@ ingress:
   #       - path: /
   #         pathType: Prefix
 
-# persistant storage can be configured to use PVC or an external NFS share
+# persistent storage can be configured to use PVC or an external NFS share
 persistence:
   enabled: true
   # size of the data volume. The configs volume will be created with 1GB

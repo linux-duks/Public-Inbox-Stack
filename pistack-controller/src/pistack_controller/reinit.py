@@ -8,7 +8,7 @@ import os
 import re
 import subprocess
 
-from pistack_controller.config import Config, PI_CONFIG
+from pistack_controller.config import PI_CONFIG, Config
 
 
 def get_inbox_names(pi_config: str) -> list[str]:

@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.14"
 
 [[package]]
@@ -73,7 +73,7 @@ wheels = [
 
 [[package]]
 name = "pistack-controller"
-version = "0.1.0"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },
@@ -85,7 +85,7 @@ dependencies = [
 requires-dist = [
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "tinysupervisor", git = "https://github.com/auyer/tinySupervisor" },
+    { name = "tinysupervisor" },
 ]
 
 [[package]]
@@ -220,12 +220,16 @@ wheels = [
 [[package]]
 name = "tinysupervisor"
 version = "0.1.0"
-source = { git = "https://github.com/auyer/tinySupervisor#a0037c4174601aef49ffdeaadf8a6bbc14820d69" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "networkx" },
     { name = "prometheus-client" },
     { name = "psutil" },
     { name = "tawazi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/14/25/80f19fa4938a7b8bc0778cf0bb7de68a2a0d0f3ada2cf0be5a3d48a6251b/tinysupervisor-0.1.0.tar.gz", hash = "sha256:d3d8f81111a7008bab943615bff1c9cab1487793b056278c281a6bc9e2e20607", size = 21285, upload-time = "2026-08-28T17:47:18.552Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9a/e6/56e098098d7288c7d387fcdf792cb9bf0eb934b2fd813149df82c768dad6/tinysupervisor-0.1.0-py3-none-any.whl", hash = "sha256:eac557ebd4a85958111ab49d5423848f408ddfb65f3fefa0a73e8d6c06172633", size = 27804, upload-time = "2026-08-28T17:47:17.362Z" },
 ]
 
 [[package]]
