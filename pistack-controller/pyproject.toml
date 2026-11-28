@@ -1,6 +1,6 @@
 [project]
 name = "pistack-controller"
-version = "0.1.0"
+version = "1.0.0"
 description = "Control the Public-Inbox-Stack"
 authors = [
     { name = "Rafael Passos", email = "rafael@rcpassos.me" }
