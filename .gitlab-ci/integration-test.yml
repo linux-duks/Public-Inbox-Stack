@@ -66,12 +66,9 @@ integration-test:
         ITEST_PROFILE: "smoke"
   before_script:
     - apt-get update -qq
-    - apt-get install -y -qq --no-install-recommends bash ca-certificates curl git make docker-cli
-    # Debian ships the docker CLI without the compose/buildx plugins.
+    - apt-get install -y -qq --no-install-recommends bash ca-certificates curl git make docker-cli docker-buildx
     - mkdir -p /usr/local/lib/docker/cli-plugins
     - curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64"
-    - curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64"
-    - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/lib/docker/cli-plugins/docker-buildx
     # containers.mk falls back to `docker-compose` if the plugin is not found.
     - ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
     - docker compose version
