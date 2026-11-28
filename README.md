@@ -443,11 +443,15 @@ uv run python -m unittest discover -s tests
 
 ## Testing
 
-Unit tests for the controller (stdlib `unittest`, no extra dependencies):
+Fast checks (no containers): ruff, the controller unit tests (stdlib
+`unittest`) and the Helm chart.
 
 ```bash
-cd pistack-controller
-uv run python -m unittest discover -s tests
+make check        # lint + test + helm-lint + helm-template
+make lint         # ruff, rules in pistack-controller/pyproject.toml
+make test         # controller unit tests (uv run --locked)
+make helm-lint
+make spell-check  # typos-cli, config in _typos.toml
 ```
 
 End-to-end integration tests for mirroring + indexing: they generate a fake
@@ -471,6 +475,20 @@ make integration-test-clean        # remove containers and test state
 
 See [`tests/integration/README.md`](tests/integration/README.md) for details and
 scale knobs.
+
+### CI
+
+Both forges run the same commands:
+
+| Pipeline | What runs |
+| --- | --- |
+| `.github/workflows/integration-test.yaml` | integration tests (smoke on PRs, full on `main`) |
+| `.gitlab-ci.yml` | `python-lint`, `python-tests`, `helm-lint`, `spell-check`, then the integration tests (smoke on MRs, full on the default branch) |
+
+The GitLab jobs run on the shared self-hosted runners. The end-to-end job
+needs the docker socket (`/var/run/docker.sock`) mounted into the job, because
+the compose files bind-mount the seed scripts, configs and `.state/` from the
+checkout.
 
 ## TODO
 

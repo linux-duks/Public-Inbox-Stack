@@ -1,0 +1,98 @@
+# End-to-end test: the real controller image mirrors a generated upstream with
+# many public-inbox lists, indexes every one of them and serves them over HTTP.
+#
+# The test itself lives in tests/integration so it runs the same way locally:
+#
+#   make -C tests/integration integration-test-smoke   # small scale (MRs)
+#   make -C tests/integration integration-test         # production-like (360)
+#
+# Runner requirement: the docker socket must be mounted into the job
+# (/var/run/docker.sock), and the job must be able to use it, i.e. run as root
+# or as a member of the host's docker group. The test drives the RUNNER's
+# daemon the same way a developer machine does, and deliberately does not use a
+# docker:dind service: the compose files bind-mount the seed scripts, the
+# configs and .state/ from the checkout, so the daemon has to see the same
+# paths as the job container.
+#
+# Two consequences of sharing one daemon between jobs and pipelines:
+#   * the compose project name is unique per pipeline+job, so concurrent runs
+#     never delete each other's containers, networks or volumes;
+#   * the jobs are serialized with resource_group, because the compose files
+#     also build the same image tag.
+
+integration-test:
+  stage: e2e
+  tags:
+    - self-hosted
+  image: debian:trixie-slim
+  timeout: 2h
+  resource_group: pistack-integration
+  variables:
+    COMPOSE_VERSION: "v2.40.3"
+    # Compose v2 refuses to build with buildx < 0.17, and Debian trixie ships
+    # 0.13, so the plugin is downloaded next to compose.
+    BUILDX_VERSION: "v0.39.1"
+    DOCKER_BUILDKIT: "1"
+    DOCKER_HOST: "unix:///var/run/docker.sock"
+    COMPOSE_PROJECT_NAME: "pistack-itest-${CI_PIPELINE_ID}-${CI_JOB_ID}"
+    # Shared tag on purpose: the image build (which compiles public-inbox) is
+    # reused between pipelines.
+    ITEST_IMAGE: "pistack-integration:ci"
+  rules:
+    # Merge requests run the fast profile, and only when something that can
+    # change the outcome was touched.
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - pistack-controller/**/*
+        - tests/integration/**/*
+        - Containerfile
+        - compose.yaml
+        - compose.dev.yaml
+        - configs.yaml
+        - example.configs.yaml
+        - containers.mk
+        - Makefile
+        - .gitlab-ci/integration-test.yml
+      variables:
+        ITEST_PROFILE: "smoke"
+    # The default branch runs all three scenarios at full scale.
+    - if: $CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      variables:
+        ITEST_PROFILE: "full"
+    # Anything else (web, tags, other branches) can be triggered by hand.
+    - when: manual
+      allow_failure: true
+      variables:
+        ITEST_PROFILE: "smoke"
+  before_script:
+    - apt-get update -qq
+    - apt-get install -y -qq --no-install-recommends bash ca-certificates curl git make docker-cli
+    # Debian ships the docker CLI without the compose/buildx plugins.
+    - mkdir -p /usr/local/lib/docker/cli-plugins
+    - curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64"
+    - curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-buildx "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64"
+    - chmod +x /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/lib/docker/cli-plugins/docker-buildx
+    # containers.mk falls back to `docker-compose` if the plugin is not found.
+    - ln -sf /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/bin/docker-compose
+    - docker compose version
+    - docker buildx version
+    - docker info --format 'docker server {{.ServerVersion}} on {{.OperatingSystem}}'
+  script:
+    - |
+      case "${ITEST_PROFILE}" in
+        smoke) make -C tests/integration integration-test-smoke ;;
+        *)     make -C tests/integration integration-test ;;
+      esac
+  after_script:
+    # The suite tears its own stack down; this only matters when the job was
+    # cancelled (or died before the EXIT trap ran).
+    - |
+      set +e
+      echo "==> containers of compose project ${COMPOSE_PROJECT_NAME}"
+      docker ps -a --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" 2>&1 || true
+      make -C tests/integration integration-test-clean || true
+  artifacts:
+    when: always
+    paths:
+      - tests/integration/.state/failure.log
+    expire_in: 7 days

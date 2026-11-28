@@ -162,6 +162,19 @@ public-inbox and its Perl dependencies) dominates the very first run.
 
 ## CI
 
-`.github/workflows/integration-test.yaml` runs the `smoke` profile on pull
-requests and the `full` profile on `main`/manual dispatch, uploading
-`.state/failure.log` when a run fails.
+Both forges run the same profiles:
+
+| Pipeline | Profile | Job |
+| --- | --- | --- |
+| `.github/workflows/integration-test.yaml` | `smoke` on pull requests, `full` on `main`/manual dispatch | GitHub-hosted runner |
+| `.gitlab-ci/integration-test.yml` | `smoke` on merge requests, `full` on the default branch, manual otherwise | self-hosted runner, docker socket mounted |
+
+Both upload `.state/failure.log` (the collected diagnostics) when a run fails.
+
+The GitLab job drives the runner's docker daemon through
+`/var/run/docker.sock` instead of a `docker:dind` service: the compose files
+bind-mount `seed/`, `configs.yaml`, `checks.py` and `.state/` from the
+checkout, so the daemon must see the same filesystem paths as the job. That is
+why the job sets a per-pipeline `COMPOSE_PROJECT_NAME` (concurrent pipelines
+share the daemon) and why the jobs are serialized with `resource_group` (they
+build the same image tag).

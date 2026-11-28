@@ -1,0 +1,22 @@
+# Lint the controller with ruff.
+#
+# The rule set lives in pistack-controller/pyproject.toml (explicit on purpose:
+# ruff's defaults change between releases) and the command in the Makefile, so
+# CI fails for the same reasons `make lint` does.
+
+python-lint:
+  stage: lint
+  tags:
+    - self-hosted
+  image: python:3.14-slim
+  rules:
+    - changes:
+        - pistack-controller/**/*
+        - Makefile
+        - .gitlab-ci/python-lint.yml
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  script:
+    - make lint

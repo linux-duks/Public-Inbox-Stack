@@ -1,0 +1,21 @@
+# Controller unit tests (stdlib unittest; no services or containers needed).
+#
+# `make test` runs them with `uv run --locked`, so the job also fails when
+# uv.lock is out of date with pyproject.toml.
+
+python-tests:
+  stage: test
+  tags:
+    - self-hosted
+  image: python:3.14-slim
+  rules:
+    - changes:
+        - pistack-controller/**/*
+        - Makefile
+        - .gitlab-ci/python-tests.yml
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq --no-install-recommends curl git
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+  script:
+    - make test

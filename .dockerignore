@@ -1,2 +1,9 @@
 **/.venv/
 .git/
+# Runtime state of the stack and of the integration tests: never part of the
+# image, and large enough to make the build-context transfer slow.
+**/.state/
+**/.ruff_cache/
+**/__pycache__/
+data/
+logs/

@@ -19,6 +19,15 @@ pistack-controller = "pistack_controller.main:main"
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
 
+[tool.ruff]
+# Keep the rule set explicit: ruff's defaults change between releases, and CI
+# must fail for the same reasons it fails locally (`make lint`).
+target-version = "py314"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
 # use development version when testing changes to the lib
 # [tool.uv.sources]
 # tinysupervisor = { git = "https://github.com/auyer/tinySupervisor" }

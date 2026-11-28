@@ -1,0 +1,33 @@
+# GitLab CI for Public-Inbox-Stack.
+#
+# The layout mirrors the MailingListsHeritage pipeline: cheap lint/test jobs
+# that only need a toolchain, plus one end-to-end job that drives the real
+# container image. Every command lives in the Makefile, so a developer runs
+# exactly the same thing locally:
+#
+#   make check                      # lint + unit tests + helm lint/render
+#   make integration-test-smoke     # end-to-end, small scale
+#   make integration-test           # end-to-end, production-like scale
+#
+# The jobs run on the shared self-hosted runners (tag `self-hosted`).
+
+stages:
+  - lint
+  - test
+  - e2e
+
+variables:
+  # public-inbox and grokmirror are git submodules of this repository.
+  GIT_SUBMODULE_STRATEGY: recursive
+  # .gitmodules already uses https:// URLs, so this only matters if a submodule
+  # is ever added with an SSH URL: it rewrites it so CI_JOB_TOKEN can be used.
+  GIT_SUBMODULE_FORCE_HTTPS: "true"
+  # Only the submodule working trees are needed, not their full history.
+  GIT_SUBMODULE_DEPTH: "1"
+
+include:
+  - local: .gitlab-ci/python-lint.yml
+  - local: .gitlab-ci/python-tests.yml
+  - local: .gitlab-ci/helm-lint.yml
+  - local: .gitlab-ci/spell-check.yml
+  - local: .gitlab-ci/integration-test.yml

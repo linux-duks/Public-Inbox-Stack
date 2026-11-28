@@ -1,0 +1,5 @@
+{
+  "venvPath": "pistack-controller",
+  "venv": ".venv",
+  "extraPaths": ["pistack-controller/src"]
+}

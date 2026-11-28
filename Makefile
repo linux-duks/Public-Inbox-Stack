@@ -10,6 +10,7 @@ DEV_CONTROLLER = uv run --project /pistack-controller pistack-controller
 PROXY_COMPOSE = -f proxy.compose.yaml
 
 .PHONY: run watch stop logs build rebuild dev dev-watch publish index purge obfuscate render proxy-config proxy-config-dry-run help
+.PHONY: lint test helm-lint helm-template spell-check check
 .PHONY: integration-test integration-test-smoke integration-test-baseline \
 	integration-test-incremental integration-test-concurrency \
 	integration-test-clean
@@ -41,7 +42,7 @@ dev: ## Start the stack in dev mode (source mounted, uv run)
 dev-watch: ## Start the stack in dev mode in the foreground
 	$(DEV_COMPOSE) up
 
-## run with the aditional proxy compose
+## run with the additional proxy compose
 run-with-proxy: run
 	$(COMPOSE) --env-file proxy/proxy.config -f compose.yaml $(PROXY_COMPOSE) up -d
 
@@ -127,6 +128,31 @@ dev-obfuscate: ## Add obfuscate = true to all publicinbox sections (dev)
 	$(DEV_COMPOSE) run --rm public-inbox-stack $(DEV_CONTROLLER) obfuscate
 
 ##@ Tests
+
+# Toolchain used by the CI jobs (also the local defaults). Override to pin a
+# different version, e.g. make lint RUFF="uvx ruff==0.17.6".
+RUFF ?= uvx ruff
+TYPOS ?= typos
+HELM ?= helm
+
+lint: ## Run ruff on the controller (rules in pistack-controller/pyproject.toml)
+	cd pistack-controller && $(RUFF) check src tests
+
+test: ## Run the controller unit tests against the locked dependencies
+	cd pistack-controller && uv run --locked python -m unittest discover -s tests
+
+helm-lint: ## Lint the Helm chart
+	$(HELM) lint chart/
+
+helm-template: ## Render the chart with the repository values
+	$(HELM) template public-inbox-stack chart/ -f chart/values.yaml >/dev/null
+
+spell-check: ## Check spelling/typos (git submodules are excluded)
+	$(TYPOS)
+
+check: lint test helm-lint helm-template ## Fast checks: lint, unit tests, chart
+
+##@ Integration tests
 
 integration-test: ## Baseline + incremental + concurrency scenarios (docker/podman)
 	$(MAKE) -C tests/integration integration-test

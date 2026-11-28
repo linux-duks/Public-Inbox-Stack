@@ -7,3 +7,4 @@ configs.yaml
 proxy/proxy.config
 proxy/angie.conf
 *.pyc
+.venv/
