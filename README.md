@@ -441,6 +441,27 @@ uv venv && uv pip install .
 uv run python -m unittest discover -s tests
 ```
 
+## Testing
+
+Unit tests for the controller (stdlib `unittest`, no extra dependencies):
+
+```bash
+cd pistack-controller
+uv run python -m unittest discover -s tests
+```
+
+End-to-end integration test for mirroring + indexing: it generates a fake
+upstream with a large number of public-inbox lists, mirrors it with the real
+container image and asserts every list is indexed and served over HTTP.
+
+```bash
+make integration-test-smoke   # 20 lists, fast
+make integration-test         # 360 lists (production-like)
+make integration-test-clean   # remove containers and test state
+```
+
+See [`tests/integration/README.md`](tests/integration/README.md) for details.
+
 ## TODO
 
 - [ ] There is still some behaviours that change the public inbox config files.

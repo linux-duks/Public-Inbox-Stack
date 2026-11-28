@@ -1,0 +1,74 @@
+# Integration test stack: a "lore" upstream with many generated inboxes plus
+# the real controller that mirrors and indexes it.
+#
+# Works with `docker compose` (v2) and `podman-compose`. Drive it with ./run.sh
+# (or `make integration-test`); run.sh creates the bind-mount directories and
+# adds compose.podman.yaml when the runtime is podman.
+#
+# Containers run as the invoking user (${UID}:${GID}) and the bind mounts carry
+# the `z` SELinux label, matching the project's root compose.yaml.
+#
+#   ./run.sh                     full run (LIST_COUNT, default 360)
+#   LIST_COUNT=20 ./run.sh       smaller/faster run
+#   KEEP=1 ./run.sh              leave everything up for inspection
+#
+# No host ports are published: assertions run inside the containers.
+
+name: pistack-integration
+
+services:
+  upstream:
+    image: ${ITEST_IMAGE:-pistack-integration:local}
+    build:
+      context: ../..
+      dockerfile: Containerfile
+    user: "${UID:-1000}:${GID:-1000}"
+    environment:
+      HOME: /tmp
+      SEED_ROOT: /data
+      PI_CONFIG: /data/pi-config
+      LIST_COUNT: "${LIST_COUNT:-360}"
+      MESSAGES_PER_LIST: "${MESSAGES_PER_LIST:-3}"
+      LISTEN_PORT: "8080"
+    volumes:
+      - ./seed/entrypoint.sh:/seed/entrypoint.sh:ro,z
+      - ./seed/generate_lists.pl:/seed/generate_lists.pl:ro,z
+      - ${ITEST_STATE:-./.state}/upstream:/data:z
+    command: ["bash", "/seed/entrypoint.sh"]
+    healthcheck:
+      # The manifest only answers once netd is up (seeding happens before).
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://localhost:8080/manifest.js.gz"]
+      interval: 10s
+      timeout: 10s
+      retries: 180
+      start_period: 10s
+
+  public-inbox-stack:
+    image: ${ITEST_IMAGE:-pistack-integration:local}
+    build:
+      context: ../..
+      dockerfile: Containerfile
+    user: "${UID:-1000}:${GID:-1000}"
+    depends_on:
+      upstream:
+        condition: service_healthy
+    environment:
+      HOME: /tmp
+      XDG_DATA_HOME: /data/state
+      XDG_CONFIG_HOME: /data/state
+      PI_CONFIG: /configs/pi-configs/config
+      GROKMIRROR_CONF_DIR: /configs/grokmirror
+      CONFIG_PATH: /configs.yaml
+      # Leaf overrides for configs.yaml (e.g. INDEXING_LEVEL) live here.
+      ENV_PATH: /env/integration.env
+      TINYSUPERVISOR_HTTP_PORT: "8081"
+      TINYSUPERVISOR_VERBOSITY: info
+      EXTINDEX_DESCRIPTION: Integration test
+    volumes:
+      - ./configs.yaml:/configs.yaml:ro,z
+      - ${ITEST_STATE:-./.state}/env:/env:ro,z
+      - ${ITEST_STATE:-./.state}/configs:/configs:z
+      - ${ITEST_STATE:-./.state}/data:/data:z
+      - ../../public-inbox/contrib/css:/static/css:ro,z
+      - ./checks.py:/checks/checks.py:ro,z
+    command: ["/pistack-controller/.venv/bin/pistack-controller", "serve"]

@@ -10,6 +10,7 @@ DEV_CONTROLLER = uv run --project /pistack-controller pistack-controller
 PROXY_COMPOSE = -f proxy.compose.yaml
 
 .PHONY: run watch stop logs build rebuild dev dev-watch publish index purge obfuscate render proxy-config proxy-config-dry-run help
+.PHONY: integration-test integration-test-smoke integration-test-clean
 
 ##@ Lifecycle
 
@@ -122,6 +123,17 @@ obfuscate: ## Add obfuscate = true to all publicinbox sections missing it
 
 dev-obfuscate: ## Add obfuscate = true to all publicinbox sections (dev)
 	$(DEV_COMPOSE) run --rm public-inbox-stack $(DEV_CONTROLLER) obfuscate
+
+##@ Tests
+
+integration-test: ## Mirror + index 360 generated lists end to end (docker compose or podman-compose)
+	$(MAKE) -C tests/integration integration-test
+
+integration-test-smoke: ## Fast integration run with 20 generated lists
+	$(MAKE) -C tests/integration integration-test-smoke
+
+integration-test-clean: ## Remove integration-test containers and state
+	$(MAKE) -C tests/integration integration-test-clean
 
 ##@ Help
 

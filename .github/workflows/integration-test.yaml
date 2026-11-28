@@ -1,0 +1,60 @@
+name: "Integration Test: mirroring + indexing"
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      list_count:
+        description: "Number of generated lists to mirror"
+        required: false
+        default: "360"
+
+permissions:
+  contents: read
+
+env:
+  # Pull requests run the fast smoke scale; main/manual runs use the full one.
+  LIST_COUNT_SMOKE: "20"
+  LIST_COUNT_FULL: "360"
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    # The first run builds the controller image (public-inbox is compiled from
+    # source), then mirrors and indexes LIST_COUNT inboxes.
+    timeout-minutes: 60
+    steps:
+      - name: Checkout (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Use HTTPS for GitLab submodules
+        # .gitmodules points at git@gitlab.com:, which needs a deploy key in CI.
+        run: |
+          git config --global url."https://gitlab.com/".insteadOf git@gitlab.com:
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
+      - name: Compose version
+        run: docker compose version
+
+      - name: Run integration test
+        env:
+          LIST_COUNT: ${{ github.event_name == 'pull_request' && env.LIST_COUNT_SMOKE || inputs.list_count || env.LIST_COUNT_FULL }}
+        run: make -C tests/integration integration-test
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-failure-log
+          path: tests/integration/.state/failure.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: make -C tests/integration integration-test-clean

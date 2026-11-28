@@ -1,0 +1,2 @@
+# Bind mounts created by run.sh (upstream seed, mirror data, rendered configs)
+.state/

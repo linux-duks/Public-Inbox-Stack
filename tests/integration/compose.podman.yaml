@@ -1,0 +1,22 @@
+# podman-compose overrides for tests/integration/compose.yaml.
+#
+# run.sh adds this file automatically when the compose command is
+# podman-compose (`make integration-test` does the same), so the same commands
+# work with podman and docker.
+#
+# Why it is needed: rootless podman maps container uids to subordinate host
+# uids, so a process running as `${UID}` inside the container is NOT the host
+# user that owns the bind-mounted `.state/` directories. Writing to /data then
+# fails with EACCES and the upstream container exits during seeding (the
+# visible symptom is an endless "still waiting for upstream manifest").
+# `userns_mode: keep-id` maps the invoking user to the same uid inside the
+# container, which makes the bind mounts writable.
+#
+# Docker Compose rejects `userns_mode: keep-id` ("must be host"), which is why
+# it lives in this separate file instead of compose.yaml.
+
+services:
+  upstream:
+    userns_mode: keep-id
+  public-inbox-stack:
+    userns_mode: keep-id

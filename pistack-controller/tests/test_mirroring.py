@@ -9,6 +9,7 @@ both are pointed at a temporary directory *before* the package is imported.
 """
 
 import os
+import signal
 import sys
 import tempfile
 import textwrap
@@ -27,6 +28,10 @@ from pistack_controller import indexer, render  # noqa: E402
 from pistack_controller.config import Config, ConfigError, load_config  # noqa: E402
 from pistack_controller.main import build_supervisor, init_folders  # noqa: E402
 from pistack_controller.purge import purge_indexing  # noqa: E402
+
+#: argv shapes used by the /proc fixtures in NetdReloadTests.
+NETD_ARGV = ("/usr/local/bin/public-inbox-netd", "-l", "http://0.0.0.0:8080")
+PYTHON_ARGV = ("python", "-m", "pistack_controller")
 
 
 def mirroring_config(sources: str, data: Path) -> str:
@@ -333,6 +338,108 @@ class IndexerTests(MirroringTestCase):
             inbox_dir = Path(config.paths.mirror, source.id, "list")
             self.assertEqual(sorted(p.name for p in inbox_dir.iterdir()), ["git"])
             self.assertTrue(Path(inbox_dir, "git", "0.git").is_dir())
+
+    def test_reload_netd_runs_when_inboxes_are_initialized(self) -> None:
+        config = self.load(
+            "- id: one.example\n  upstream_host: https://one.example\n"
+        )
+        self.make_inbox(config, "one.example", "list")
+        calls: list[str] = []
+
+        class Result:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        with (
+            mock.patch.object(indexer, "run_cmd", lambda cmd, env=None: Result()),
+            mock.patch.object(indexer, "git_config_get", lambda *a: None),
+            mock.patch.object(
+                indexer, "fetch_remote_config", lambda name, origin: ("a@b", "")
+            ),
+            mock.patch.object(
+                indexer, "reload_netd", lambda *a, **kw: calls.append("reload")
+            ),
+        ):
+            self.assertEqual(indexer.index_cloned_repos(config), 0)
+            self.assertEqual(calls, ["reload"])
+
+            # Already in PI_CONFIG and already v2-initialized: skipped, so the
+            # config is untouched and no reload is needed.
+            calls.clear()
+            inbox_dir = Path(config.paths.mirror, "one.example", "list")
+            Path(inbox_dir, "all.git").mkdir()
+            Path(inbox_dir, "msgmap.sqlite3").write_text("x")
+            with mock.patch.object(
+                indexer, "git_config_get", lambda *a: str(inbox_dir)
+            ):
+                self.assertEqual(indexer.index_cloned_repos(config), 0)
+            self.assertEqual(calls, [])
+
+    def test_run_extindex_reloads_netd(self) -> None:
+        config = self.load(
+            "- id: one.example\n  upstream_host: https://one.example\n"
+        )
+        calls: list[str] = []
+
+        class Result:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        with (
+            mock.patch.object(indexer, "run_cmd", lambda cmd, env=None: Result()),
+            mock.patch.object(
+                indexer, "reload_netd", lambda *a, **kw: calls.append("reload")
+            ),
+        ):
+            self.assertEqual(indexer.run_extindex(config), 0)
+            self.assertEqual(calls, ["reload"])
+
+
+class NetdReloadTests(MirroringTestCase):
+    def make_proc(self, processes: dict[int, tuple[tuple[str, ...], int]]) -> str:
+        root = self.dir / "proc"
+        root.mkdir()
+        for pid, (argv, ppid) in processes.items():
+            pid_dir = root / str(pid)
+            pid_dir.mkdir()
+            (pid_dir / "cmdline").write_bytes(
+                b"\0".join(arg.encode() for arg in argv) + b"\0"
+            )
+            # comm is parenthesized and may contain spaces, like the real file.
+            (pid_dir / "stat").write_text(
+                f"{pid} (public-inbox netd) S {ppid} {pid} {pid} 0 -1\n"
+            )
+        return str(root)
+
+    def test_only_the_daemon_master_is_signalled(self) -> None:
+        proc = self.make_proc(
+            {
+                10: (NETD_ARGV, 1),
+                11: (NETD_ARGV, 10),
+                12: (NETD_ARGV, 10),
+                20: (PYTHON_ARGV, 1),
+            }
+        )
+        with mock.patch.object(indexer.os, "kill") as kill:
+            self.assertEqual(indexer.reload_netd(proc), [10])
+        self.assertEqual(kill.call_args_list, [mock.call(10, signal.SIGHUP)])
+
+    def test_no_netd_running_is_a_noop(self) -> None:
+        proc = self.make_proc({20: (PYTHON_ARGV, 1)})
+        with mock.patch.object(indexer.os, "kill") as kill:
+            self.assertEqual(indexer.reload_netd(proc), [])
+        self.assertEqual(kill.call_args_list, [])
+
+    def test_orphaned_worker_is_signalled_when_the_master_is_gone(self) -> None:
+        proc = self.make_proc({11: (NETD_ARGV, 10)})
+        with mock.patch.object(indexer.os, "kill") as kill:
+            self.assertEqual(indexer.reload_netd(proc), [11])
+        self.assertEqual(kill.call_args_list, [mock.call(11, signal.SIGHUP)])
+
+    def test_missing_proc_root_is_a_noop(self) -> None:
+        self.assertEqual(indexer.reload_netd(str(self.dir / "no-such-proc")), [])
 
 
 if __name__ == "__main__":
