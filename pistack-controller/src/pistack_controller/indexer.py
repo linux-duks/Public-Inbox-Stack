@@ -8,14 +8,18 @@ external index with ``public-inbox-extindex``. Python port of
 
 import os
 import re
+import signal
 import subprocess
 import time
 import urllib.request
 
-from pistack_controller.config import Config, MirrorSource, PI_CONFIG
+from pistack_controller.config import PI_CONFIG, Config, MirrorSource
 
 GROKMIRROR_UA = "grokmirror/2.1.0"
 HTTP_MINIMUM_INTERVAL = 15.0
+
+#: Process name of the multi-protocol public-inbox daemon.
+NETD_NAME = "public-inbox-netd"
 
 _last_http: list[float] = [0.0]
 
@@ -44,6 +48,96 @@ def build_index_flags(config: Config, jobs: int = 4) -> list[str]:
     if config.indexing.level != "full":
         flags += ["-L", config.indexing.level]
     return flags
+
+
+# -- public-inbox-netd reload --------------------------------------------
+#
+# ``public-inbox-init`` appends a ``[publicinbox "<name>"]`` section to
+# PI_CONFIG, but the long-running ``public-inbox-netd`` service keeps the
+# config it loaded at startup.  Without a reload, newly initialized inboxes
+# are indexed on disk yet never served over HTTP/NNTP/IMAP until the
+# controller restarts.  SIGHUP makes the daemon respawn its workers, which
+# re-read PI_CONFIG (PublicInbox::Daemon::master_loop).
+
+
+def _proc_argv(pid_dir: str) -> list[str]:
+    """Return the argv of a ``/proc/<pid>`` process (empty when unreadable)."""
+    try:
+        with open(os.path.join(pid_dir, "cmdline"), "rb") as handle:
+            raw = handle.read()
+    except OSError:
+        return []
+    return [part.decode(errors="replace") for part in raw.split(b"\0") if part]
+
+
+def _proc_ppid(pid_dir: str) -> int | None:
+    """Return the parent PID of a ``/proc/<pid>`` process."""
+    try:
+        with open(os.path.join(pid_dir, "stat"), encoding="utf-8") as handle:
+            data = handle.read()
+    except OSError:
+        return None
+    # ``comm`` (field 2) is parenthesized and may itself contain spaces and
+    # parentheses, so split after the final ')' instead of by whitespace.
+    _, _, tail = data.rpartition(")")
+    fields = tail.split()
+    if len(fields) < 2:
+        return None
+    try:
+        return int(fields[1])
+    except ValueError:
+        return None
+
+
+def find_netd_pids(proc_root: str = "/proc") -> dict[int, int | None]:
+    """Map every running ``public-inbox-netd`` PID to its parent PID."""
+    try:
+        entries = os.listdir(proc_root)
+    except OSError:
+        return {}
+
+    pids: dict[int, int | None] = {}
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid_dir = os.path.join(proc_root, entry)
+        argv = _proc_argv(pid_dir)
+        if not any(os.path.basename(arg) == NETD_NAME for arg in argv):
+            continue
+        pids[int(entry)] = _proc_ppid(pid_dir)
+    return pids
+
+
+def reload_netd(proc_root: str = "/proc") -> list[int]:
+    """SIGHUP the running ``public-inbox-netd`` so it re-reads PI_CONFIG.
+
+    Workers forked by the daemon master inherit its cmdline, so only the
+    master (the netd PID whose parent is not itself a netd) is signalled;
+    restarting its workers is enough and avoids killing a worker mid-request.
+
+    Returns the list of signalled PIDs (empty when netd is not running).
+    """
+    pids = find_netd_pids(proc_root)
+    if not pids:
+        return []
+
+    masters = [pid for pid, ppid in pids.items() if ppid not in pids]
+    targets = sorted(masters or pids)
+
+    signalled: list[int] = []
+    for pid in targets:
+        try:
+            os.kill(pid, signal.SIGHUP)
+        except ProcessLookupError:
+            continue
+        except PermissionError as exc:
+            print(f"[indexer] Cannot reload public-inbox-netd (pid {pid}): {exc}")
+            continue
+        signalled.append(pid)
+
+    if signalled:
+        print(f"[indexer] Reloaded public-inbox-netd (pids: {signalled})")
+    return signalled
 
 
 def find_v2_inboxes(topdir: str) -> list[str]:
@@ -75,11 +169,10 @@ def needs_init(inbox_dir: str) -> bool:
         if name.endswith(".git")
     ):
         return False
-    if not os.path.isdir(os.path.join(inbox_dir, "all.git")) or not os.path.isfile(
+    # Missing the v2 wrapper (all.git / msgmap) means it still needs init.
+    return not os.path.isdir(os.path.join(inbox_dir, "all.git")) or not os.path.isfile(
         os.path.join(inbox_dir, "msgmap.sqlite3")
-    ):
-        return True
-    return False
+    )
 
 
 def extract_addresses_from_git(inbox_dir: str) -> str:
@@ -116,12 +209,16 @@ def fetch_remote_config(inbox_name: str, origin: str) -> tuple[str, str]:
     _last_http[0] = time.time()
 
     url = f"{origin}/{inbox_name}/_/text/config/raw"
-    request = urllib.request.Request(
+    if not url.startswith(("http://", "https://")):
+        print(f"[indexer] unsupported origin for '{inbox_name}': {origin}")
+        return "", ""
+
+    request = urllib.request.Request(  # noqa: S310 - scheme checked above
         url,
         headers={"User-Agent": GROKMIRROR_UA, "Accept": "*/*"},
     )
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=30) as response:  # noqa: S310
             body = response.read().decode(errors="replace")
     except Exception as exc:  # noqa: BLE001
         print(f"[indexer] failed to fetch remote config for '{inbox_name}': {exc}")
@@ -219,6 +316,10 @@ def index_cloned_repos(
         f"[indexer] Summary: {total} inboxes, "
         f"{counts[0]} initialized, {counts[2]} skipped, {counts[1]} failed"
     )
+    if counts[0] > 0:
+        # public-inbox-init added sections to PI_CONFIG; make the running
+        # daemon pick them up instead of waiting for a controller restart.
+        reload_netd()
     return 0 if counts[1] == 0 else 1
 
 
@@ -236,4 +337,7 @@ def run_extindex(config: Config) -> int:
         print(f"[indexer] Extindex failed: {result.stderr.strip()}")
         return 1
     print("[indexer] Extindex complete")
+    # The extindex is read by the serving daemons; reload so a refreshed or
+    # newly populated extindex is visible without a container restart.
+    reload_netd()
     return 0
